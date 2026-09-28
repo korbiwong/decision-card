@@ -1,0 +1,22 @@
+name: scan
+on:
+  schedule:
+    - cron: "40 9 * * 1-5"
+    - cron: "30 21 * * 1-5"
+  workflow_dispatch:
+permissions: { contents: write }
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install yfinance requests pandas openpyxl lxml
+      - env: { NTFY_TOPIC: "${{ secrets.NTFY_TOPIC }}", MAIL_TO: "${{ secrets.MAIL_TO }}", GMAIL_USER: "${{ secrets.GMAIL_USER }}", GMAIL_APP_PASSWORD: "${{ secrets.GMAIL_APP_PASSWORD }}" }
+        run: |
+          if [ "${{ github.event.schedule }}" = "30 21 * * 1-5" ]; then python scanner.py US; elif [ "${{ github.event.schedule }}" = "40 9 * * 1-5" ]; then python scanner.py HK; else python scanner.py HK US; fi
+          python quotes.py
+      - run: |
+          git config user.name scanner; git config user.email scanner@users.noreply.github.com
+          git add signals_*.json quotes.json intraday.json state.json; git diff --cached --quiet || (git commit -m "scan $(date +%F)" && git push)
