@@ -64,6 +64,7 @@ h2{font-size:17px;margin:22px 0 10px}
 details{background:var(--paper);border-radius:14px;box-shadow:var(--sh);padding:0 16px;margin-top:12px}summary{cursor:pointer;padding:12px 0;font-weight:700;font-size:15px;list-style:none}summary::after{content:" +";color:var(--ink3)}details[open] summary::after{content:" –"}
 .ctl{display:flex;gap:8px;margin:6px 0 12px}.ctl input{flex:1;padding:10px;border:1px solid var(--rule);border-radius:10px;background:var(--field);color:var(--ink);font:inherit;min-width:0}
 .foot{font-size:12px;color:var(--ink3);margin-top:24px;line-height:1.5}
+.dayline{margin:8px 0;padding:8px 10px;border-radius:10px;background:var(--field);border-left:4px solid var(--light);--light:var(--ink3);line-height:1.5}.dayline.go{--light:var(--go)}.dayline.stop{--light:var(--stop)}.dayline.wait{--light:var(--wait)}.dayline .row{align-items:center}
 .en.hit{--light:var(--go);background:var(--gos)}.toast{position:fixed;left:12px;right:12px;bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--page);padding:12px 14px;border-radius:14px;font-weight:700;z-index:9;box-shadow:var(--sh);display:none}.toast.show{display:block}
 .en.real{--light:var(--act)}.en.win{--light:var(--go)}.en.loss{--light:var(--stop)}.pl{font-size:18px;font-weight:900}.pl.up{color:var(--go)}.pl.dn{color:var(--stop)}
 .sell{display:flex;gap:6px;margin-top:6px}.sell input{flex:1;padding:8px;border:1px solid var(--rule);border-radius:9px;background:var(--field);color:var(--ink);font:inherit;min-width:0}
@@ -88,21 +89,16 @@ table.rv{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}table
   <div class="status" id="status">準備緊…</div>
 </div>
 
-<div class="vtabs"><button class="vtab on" data-v="cards">🔥 卡</button><button class="vtab" data-v="summary">📋 總結</button><button class="vtab" data-v="day">⚡ 單日</button><button class="vtab" data-v="log">📒 紀錄</button><button class="vtab" data-v="review">🔍 檢討</button></div>
+<div class="vtabs"><button class="vtab on" data-v="cards">🔥 卡</button><button class="vtab" data-v="summary">📋 總結</button><button class="vtab" data-v="log">📒 紀錄</button><button class="vtab" data-v="review">🔍 檢討</button></div>
 
 <div class="view on" id="v-cards">
-  <div class="tabs" id="tabs"><button class="tab on" data-f="top">今日值得睇</button><button class="tab" data-f="go">🟢</button><button class="tab" data-f="wait">🟡</button><button class="tab" data-f="stop">🔴</button><button class="tab" data-f="all">全部</button></div>
+  <div class="tabs" id="tabs"><button class="tab on" data-f="top">今日值得睇</button><button class="tab" data-f="go">🟢</button><button class="tab" data-f="wait">🟡</button><button class="tab" data-f="stop">🔴</button><button class="tab" data-f="day">⚡ 即日</button><button class="tab" data-f="all">全部</button></div>
   <div class="grid" id="cards"></div>
 </div>
 
 <div class="view" id="v-summary">
   <div class="panel"><b>今日最值得睇嘅幾隻</b><div class="muted">按 R:R 同趨勢排。每隻有理想買入區、分段賣出價、止蝕、短中長線同新聞分析。撳「總結＋論據」：先搵新聞，再由 Claude 寫支持論據、反方論據，每條註明來源。</div></div>
   <div class="grid" id="sumcards"></div>
-</div>
-
-<div class="view" id="v-day">
-  <div class="panel"><b>⚡ 單日買賣（即日）</b><div class="muted">用 5 分鐘 K 線睇今日：開市區間（頭 30 分鐘）、VWAP、成交。數據每 15 分鐘由 GitHub 更新，Yahoo 本身再延遲 15 分鐘——即日炒賣用呢個數據係唔夠快嘅，呢度係練習睇型態，唔好用嚟落即市單。</div><div class="status" id="dayStatus"></div></div>
-  <div class="grid" id="daycards"></div>
 </div>
 
 <div class="view" id="v-log">
@@ -227,7 +223,7 @@ const score=r=>(r.a.lamp==='🟢'?100:r.a.word==='等回調'?50:r.a.lamp==='🟡
 async function scan(m){
   m=m||market; if(busy) return; busy=true; $('refresh').disabled=true; const bar=$('prog').firstElementChild; bar.style.width='20%';
   try{
-    const [sig,q]=await Promise.all([getJSON('signals_'+m+'.json'),getJSON('quotes.json').catch(()=>quotes)]); quotes=q||quotes;
+    const [sig,q]=await Promise.all([getJSON('signals_'+m+'.json'),getJSON('quotes.json').catch(()=>quotes),loadIntra()]); quotes=q||quotes;
     const rows=(sig.all||[]).map(a=>({code:a.code,name:a.name||'',a,bars:(a.recent||[]).map(x=>({d:x.d,h:x.h,l:x.l,c:x.c})),liveAt:null}));
     const idx={}; for(const i of (sig.indices||[])) if(i&&Number.isFinite(i.close)) idx[i.sym]={close:i.close,chg:Number.isFinite(i.chg)?i.chg:0,lamp:i.lamp||'🟡',name:i.name,date:sig.date};
     state[m]={rows,idx,at:Date.now(),date:sig.date,generated:sig.generated,breadth:sig.breadth};
@@ -239,10 +235,11 @@ async function scan(m){
 function applyQuotes(m){ const qm=quotes[m]||{}; for(const r of state[m].rows){ const q=qm[r.code]; if(!q) continue; r.live=q; r.liveAt=quotes.at; if(q.d>r.a.date){ const b=r.bars.find(b=>b.d===q.d); if(!b) r.bars.push({d:q.d,h:q.h,l:q.l,c:q.p}); else { b.h=Math.max(b.h,q.h); b.l=Math.min(b.l,q.l); b.c=q.p; } } }
   for(const k of CFG[m].idx){ const q=qm[k]; if(q){ state[m].idx[k]=state[m].idx[k]||{name:CFG[m].idxName[k]}; state[m].idx[k].close=q.p; state[m].idx[k].chg=q.chg; state[m].idx[k].lamp=q.chg>0.5?'🟢':q.chg<-0.5?'🔴':'🟡'; } } }
 async function live(){ if(busy||document.hidden) return; const m=market; if(!state[m].rows.length) return;
-  try{ quotes=await getJSON('quotes.json'); applyQuotes(m); liveLog={at:Date.now(),ok:true,msg:''}; autoCheck(m); resolvePredictions(m); checkAlerts(m); renderAll(); }
+  try{ quotes=await getJSON('quotes.json'); await loadIntra(); applyQuotes(m); liveLog={at:Date.now(),ok:true,msg:''}; autoCheck(m); resolvePredictions(m); checkAlerts(m); renderAll(); }
   catch(e){ liveLog={at:Date.now(),ok:false,msg:errMsg(e)}; renderMarket(); } }
 /* ---------- render ---------- */
 function visibleRows(){ const rows=state[market].rows, order={'🟢':0,'🟡':1,'🔴':2}; let list=rows.slice();
+  if(filter==='day'){ list=list.filter(r=>dayFor(r)); return list.sort((x,y)=>order[dayFor(x).lamp]-order[dayFor(y).lamp]||dayFor(y).rr-dayFor(x).rr); }
   if(filter==='top') list=list.filter(r=>r.a.lamp==='🟢'||r.a.word==='等回調'); else if(filter!=='all') list=list.filter(r=>lampCls(r.a.lamp)===filter);
   return list.sort((x,y)=>order[x.a.lamp]-order[y.a.lamp]||y.a.rr-x.a.rr); }
 function fmtTime(ts){ if(!ts) return ''; const d=typeof ts==='number'?new Date(ts*1000):new Date(ts); return d.toLocaleString('zh-HK',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',timeZone:market==='HK'?'Asia/Hong_Kong':'America/New_York'})+(market==='HK'?' HKT':' ET'); }
@@ -258,13 +255,14 @@ function cardHTML(r,i){const a=r.a;return `
     <div class="row"><div class="stock">${esc(r.code)} ${esc(r.name)}<small>${r.live?'報價 '+esc(fmtTime(r.liveAt)):'收市 '+esc(a.date)} · 日均成交 ${CFG[market].cur}${a.turnover.toFixed(0)}M</small></div><div class="lamp"><div class="e">${a.lamp}</div><div class="w">${esc(a.word)}</div></div></div>
     <div class="price">${r.live?money(r.live.p):money(a.entry)} <span class="chg ${(r.live?r.live.chg:a.chg)>=0?'up':'dn'}">${pct(r.live?r.live.chg:a.chg)}</span>${r.live?'':' <span class="small">收市價</span>'}</div>
     <div class="tf"><span>今日 ${a.tf.today}</span><span>短線 ${a.lamp}</span><span>中線 ${a.tf.mid}</span><span>長線 ${a.tf.long}</span></div>
+    ${dayLine(r)}
     <div class="stats"><div class="st">🎯 目標<b class="go">${money(a.target)}</b>${pct(a.rewP)}</div><div class="st">🛑 止蝕<b class="stop">${money(a.stop)}</b>−${a.riskP.toFixed(1)}%</div><div class="st">R:R<b>${a.rr.toFixed(1)} : 1</b>ATR ${a.atrP.toFixed(1)}%</div></div>
     <div class="why"><b>點解？</b> ${esc(a.why)}<br><span class="muted">最大風險：跌穿 ${money(a.stop)}，趨勢假設失效。</span></div>
     <div class="acts"><button class="btn" data-council="${i}">👥 五人開會</button><button class="btn sec" data-sum="${i}">📋 總結</button><button class="btn sec" data-save="${i}">記低 paper trade</button><button class="btn sec" data-real="${i}">💰 我買咗</button></div>
     <div class="council" id="c${i}"></div>
   </div>`;}
 function renderCards(){ const list=visibleRows(), rows=state[market].rows;
-  if(!list.length){ $('cards').innerHTML=`<div class="panel muted">${rows.length?(filter==='top'?'今日冇 🟢，唔做都係一個決定。睇下「全部」。':'呢個燈冇股票。'):'等緊報價…'}</div>`; return; }
+  if(!list.length){ $('cards').innerHTML=`<div class="panel muted">${rows.length?(filter==='top'?'今日冇 🟢，唔做都係一個決定。睇下「全部」。':filter==='day'?'而家冇即日數據（未開市，或者 quotes 未跑）。':'呢個燈冇股票。'):'等緊報價…'}</div>`; return; }
   $('cards').innerHTML=list.slice(0,80).map(r=>cardHTML(r,rows.indexOf(r))).join('')+(list.length>80?'<div class="panel muted">只顯示頭 80 隻（共 '+list.length+'）。</div>':''); }
 function zoneHTML(a){ const z=a.zone; return `<div class="zone">
    <div class="z buy">理想買入區<b>${z?money(z[0])+' – '+money(z[1]):'唔買'}</b>${a.setup==='pullback'||a.setup==='uptrend'?'20 日線附近':a.setup==='breakout'?'突破位':a.setup==='over'?'等回調到呢度':'趨勢向下'}</div>
@@ -277,6 +275,7 @@ function renderSummary(){ const rows=state[market].rows; if(!rows.length){$('sum
     <div class="row"><div class="stock">${esc(r.code)} ${esc(r.name)}<small>${money(a.entry)} ${pct(a.chg)} · 數據 ${esc(fmtTime(r.liveAt)||a.date)}</small></div><div class="lamp"><div class="e">${a.lamp}</div><div class="w">${esc(a.word)}</div></div></div>
     <div class="tf"><span>短線 ${a.lamp}</span><span>中線 ${a.tf.mid} ${a.trend==='up'?'向上':a.trend==='down'?'向下':'橫行'}</span><span>長線 ${a.tf.long} ${a.s200?(a.entry>a.s200?'200 日線上':'200 日線下'):'數據不足'}</span></div>
     ${zoneHTML(a)}
+    ${dayLine(r)}
     <div class="why"><b>點解？</b> ${esc(a.why)}</div>
     <div class="acts"><button class="btn" data-gen="${i}">✍️ 總結＋論據</button><button class="btn sec" data-news="${i}">📰 新聞分析</button><button class="btn sec" data-save="${i}">記低</button></div>
     <div class="sumbox" id="s${i}"></div><div class="newsbox" id="n${i}"></div></div>`}).join(''); }
@@ -415,23 +414,14 @@ function analyseDay(rec,daily){
   if(lamp==='🟢'&&rr<1.5){lamp='🟡';word='R:R 唔夠';why.push(`R:R ${rr.toFixed(1)}，唔夠 1.5。`)}
   return {lamp,word,why:why.join(' '),entry,stop,target,rr,riskP,rewP,vwap,open,hi,lo,orbH,orbL,chgO,chg,volR,at:last.t,nbars:tb.length,d:rec.d};
 }
-async function dayScan(){
-  if(dayBusy) return; dayBusy=true; const m=market, cfg=CFG[m], st=state[m]; $('dayStatus').textContent='載入緊 5 分鐘 K 線…';
-  try{ const intra=await getJSON('intraday.json'); const recs=intra[m]||{}; const out=[];
-    for(const [code,rec] of Object.entries(recs)){ const daily=st.rows.find(r=>r.code===code); const a=analyseDay(rec,daily); if(a) out.push({code,name:(daily&&daily.name)||cfg.names[code]||'',a}); }
-    const order={'🟢':0,'🟡':1,'🔴':2}; out.sort((x,y)=>order[x.a.lamp]-order[y.a.lamp]||y.a.rr-x.a.rr); const cur=cfg.cur;
-    $('daycards').innerHTML=out.length?out.map(r=>{const a=r.a;return `<div class="card ${lampCls(a.lamp)}">
-      <div class="row"><div class="stock">${esc(r.code)} ${esc(r.name)}<small>${esc(a.d)} · 數據 ${esc(fmtTime(a.at))} · 第 ${a.nbars} 支 5 分鐘 K</small></div><div class="lamp"><div class="e">${a.lamp}</div><div class="w">${esc(a.word)}</div></div></div>
-      <div class="price">${cur}${a.entry.toFixed(2)} <span class="chg ${a.chg>=0?'up':'dn'}">${pct(a.chg)}</span> <span class="small">對開市 ${pct(a.chgO)}</span></div>
-      <div class="tf"><span>VWAP ${cur}${a.vwap.toFixed(2)} ${a.entry>a.vwap?'↑':'↓'}</span><span>開市區間 ${cur}${a.orbL.toFixed(2)}–${a.orbH.toFixed(2)}</span><span>今日 ${cur}${a.lo.toFixed(2)}–${a.hi.toFixed(2)}</span><span>成交 ${a.volR.toFixed(1)}×</span></div>
-      <div class="stats"><div class="st">🎯 即日目標<b class="go">${cur}${a.target.toFixed(2)}</b>${pct(a.rewP)}</div><div class="st">🛑 即日止蝕<b class="stop">${cur}${a.stop.toFixed(2)}</b>−${a.riskP.toFixed(1)}%</div><div class="st">R:R<b>${a.rr.toFixed(1)} : 1</b></div></div>
-      <div class="why"><b>點解？</b> ${esc(a.why)}<br><span class="muted">即日規則：收市前一定平倉；跌返落 VWAP 之下即走。</span></div></div>`}).join(''):'<div class="panel muted">而家冇即日數據（未開市，或者 GitHub 未跑過 quotes）。</div>';
-    $('dayStatus').innerHTML=`<div class="ok">${out.length} 隻 · 數據時間 ${intra.at?fmtTime(intra.at):'—'} · 開住每 3 分鐘讀一次</div>`;
-  }catch(e){ $('dayStatus').innerHTML='<div class="err">'+esc(errMsg(e))+'</div>'; }
-  dayBusy=false;
-}
-setInterval(()=>{ if(view==='day'&&!document.hidden) dayScan(); },3*60*1000);
-
+let intra={at:null,HK:{},US:{}};
+async function loadIntra(){ try{ intra=await getJSON('intraday.json'); }catch(e){} }
+function dayFor(r){ const rec=(intra[market]||{})[r.code]; if(!rec) return null; if(r._dayKey===intra.at+market) return r._day; r._day=analyseDay(rec,r); r._dayKey=intra.at+market; return r._day; }
+function dayLine(r){ const a=dayFor(r); if(!a) return ''; const cur=CFG[market].cur;
+  return `<div class="dayline ${lampCls(a.lamp)}"><div class="row"><b>⚡ 即日 ${a.lamp} ${esc(a.word)}</b><span class="small">${esc(fmtTime(a.at))}</span></div>
+  <div class="small">VWAP ${cur}${a.vwap.toFixed(2)} ${a.entry>a.vwap?'↑':'↓'} · 開市區間 ${cur}${a.orbL.toFixed(2)}–${a.orbH.toFixed(2)} · 成交 ${a.volR.toFixed(1)}× · 對開市 ${pct(a.chgO)}</div>
+  <div class="small">即日止蝕 <b style="color:var(--stop)">${cur}${a.stop.toFixed(2)}</b>（−${a.riskP.toFixed(1)}%）· 即日目標 <b style="color:var(--go)">${cur}${a.target.toFixed(2)}</b>（${pct(a.rewP)}）· R:R ${a.rr.toFixed(1)}</div>
+  <div class="small">${esc(a.why)} 收市前平倉。</div></div>`; }
 /* ---------- price alerts ---------- */
 function toast(msg){ const t=$('toast'); t.textContent=msg; t.className='toast show'; setTimeout(()=>t.className='toast',6000); try{ navigator.vibrate&&navigator.vibrate([200,100,200]); }catch(e){} }
 function notify(title,body){ toast(title+' '+body); try{ if('Notification' in window&&Notification.permission==='granted') new Notification(title,{body}); }catch(e){} }
@@ -483,7 +473,7 @@ document.addEventListener('click',ev=>{ const b=ev.target.closest('button'); if(
   if(b.dataset.rdel){ const id=+(b.closest('[data-rid]').dataset.rid); if(!confirm('刪除呢單？')) return; LS.set(RK,LS.get(RK,[]).filter(e=>e.id!==id)); renderReal(); } });
 
 /* ---------- tabs / watchlist ---------- */
-function setView(){ document.querySelectorAll('.vtab').forEach(t=>t.classList.toggle('on',t.dataset.v===view)); ['cards','summary','day','log','review'].forEach(v=>$('v-'+v).classList.toggle('on',v===view)); if(view==='day') dayScan(); }
+function setView(){ document.querySelectorAll('.vtab').forEach(t=>t.classList.toggle('on',t.dataset.v===view)); ['cards','summary','log','review'].forEach(v=>$('v-'+v).classList.toggle('on',v===view)); }
 document.querySelectorAll('.vtab').forEach(t=>t.onclick=()=>{view=t.dataset.v;setView();});
 document.querySelectorAll('.mtab').forEach(t=>t.onclick=async()=>{ market=t.dataset.m; document.querySelectorAll('.mtab').forEach(x=>x.classList.toggle('on',x===t)); if(!state[market].rows.length) loadCache(market); renderAll(); if(!state[market].rows.length||Date.now()-state[market].at>4*3600*1000) await scan(market); else live(); });
 $('tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(!b)return;filter=b.dataset.f;document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t===b));renderCards();});
