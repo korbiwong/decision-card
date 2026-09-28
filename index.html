@@ -229,7 +229,7 @@ async function scan(m){
   try{
     const [sig,q]=await Promise.all([getJSON('signals_'+m+'.json'),getJSON('quotes.json').catch(()=>quotes)]); quotes=q||quotes;
     const rows=(sig.all||[]).map(a=>({code:a.code,name:a.name||'',a,bars:(a.recent||[]).map(x=>({d:x.d,h:x.h,l:x.l,c:x.c})),liveAt:null}));
-    const idx={}; for(const i of (sig.indices||[])) idx[i.sym]={close:i.close,chg:i.chg,lamp:i.lamp,name:i.name,date:sig.date};
+    const idx={}; for(const i of (sig.indices||[])) if(i&&Number.isFinite(i.close)) idx[i.sym]={close:i.close,chg:Number.isFinite(i.chg)?i.chg:0,lamp:i.lamp||'🟡',name:i.name,date:sig.date};
     state[m]={rows,idx,at:Date.now(),date:sig.date,generated:sig.generated,breadth:sig.breadth};
     applyQuotes(m); logPredictions(m); resolvePredictions(m); const n=autoCheck(m); checkAlerts(m);
     if(m===market){ renderAll(); $('status').innerHTML=`<div class="ok">${sig.date} 收市掃描 ${rows.length} 隻：🟢 ${rows.filter(r=>r.a.lamp==='🟢').length}　🟡 ${rows.filter(r=>r.a.lamp==='🟡').length}　🔴 ${rows.filter(r=>r.a.lamp==='🔴').length}${n?'　· 自動判定咗 '+n+' 單':''}</div>`; }
@@ -237,7 +237,7 @@ async function scan(m){
   bar.style.width='100%'; busy=false; $('refresh').disabled=false; setTimeout(()=>bar.style.width='0',800);
 }
 function applyQuotes(m){ const qm=quotes[m]||{}; for(const r of state[m].rows){ const q=qm[r.code]; if(!q) continue; r.live=q; r.liveAt=quotes.at; if(q.d>r.a.date){ const b=r.bars.find(b=>b.d===q.d); if(!b) r.bars.push({d:q.d,h:q.h,l:q.l,c:q.p}); else { b.h=Math.max(b.h,q.h); b.l=Math.min(b.l,q.l); b.c=q.p; } } }
-  for(const k of Object.keys(state[m].idx)){ const q=qm[k]; if(q){ state[m].idx[k].close=q.p; state[m].idx[k].chg=q.chg; state[m].idx[k].lamp=q.chg>0.5?'🟢':q.chg<-0.5?'🔴':'🟡'; } } }
+  for(const k of CFG[m].idx){ const q=qm[k]; if(q){ state[m].idx[k]=state[m].idx[k]||{name:CFG[m].idxName[k]}; state[m].idx[k].close=q.p; state[m].idx[k].chg=q.chg; state[m].idx[k].lamp=q.chg>0.5?'🟢':q.chg<-0.5?'🔴':'🟡'; } } }
 async function live(){ if(busy||document.hidden) return; const m=market; if(!state[m].rows.length) return;
   try{ quotes=await getJSON('quotes.json'); applyQuotes(m); liveLog={at:Date.now(),ok:true,msg:''}; autoCheck(m); resolvePredictions(m); checkAlerts(m); renderAll(); }
   catch(e){ liveLog={at:Date.now(),ok:false,msg:errMsg(e)}; renderMarket(); } }
@@ -248,7 +248,7 @@ function visibleRows(){ const rows=state[market].rows, order={'🟢':0,'🟡':1,
 function fmtTime(ts){ if(!ts) return ''; const d=typeof ts==='number'?new Date(ts*1000):new Date(ts); return d.toLocaleString('zh-HK',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',timeZone:market==='HK'?'Asia/Hong_Kong':'America/New_York'})+(market==='HK'?' HKT':' ET'); }
 function renderMarket(){ const cfg=CFG[market], st=state[market], rows=st.rows, b=rows.length?rows.filter(r=>r.a.aboveS20).length/rows.length:0;
   $('mkTitle').textContent=market==='HK'?'📊 今日港股':'📊 今日美股';
-  $('mk').innerHTML=cfg.idx.map(k=>{const v=st.idx[k];return `<div class="bx"><div class="k">${esc((v&&v.name)||cfg.idxName[k])}</div><div class="v">${v?v.lamp+' '+pct(v.chg):'—'}</div><div class="k">${v?v.close.toLocaleString('en-US',{maximumFractionDigits:0}):''}</div></div>`}).join('')+
+  $('mk').innerHTML=cfg.idx.map(k=>{const v=st.idx[k];return `<div class="bx"><div class="k">${esc((v&&v.name)||cfg.idxName[k])}</div><div class="v">${v&&Number.isFinite(v.close)?v.lamp+' '+pct(v.chg):'—'}</div><div class="k">${v&&Number.isFinite(v.close)?v.close.toLocaleString('en-US',{maximumFractionDigits:0}):''}</div></div>`}).join('')+
   `<div class="bx"><div class="k">廣度（20 日線上）</div><div class="v">${rows.length?(b>=.6?'🟢':b<=.4?'🔴':'🟡')+' '+Math.round(b*100)+'%':'—'}</div><div class="k">${rows.length?rows.filter(r=>r.a.aboveS20).length+'/'+rows.length+' 隻':''}</div></div>`;
   const lt=quotes.at||0;
   const ll=liveLog.at?` · 上次自動更新 ${new Date(liveLog.at).toLocaleTimeString('zh-HK',{hour:'2-digit',minute:'2-digit'})} ${liveLog.ok?'✓':'✗ '+liveLog.msg}`:'';
