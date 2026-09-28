@@ -92,7 +92,7 @@ table.rv{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}table
 <div class="vtabs"><button class="vtab on" data-v="cards">🔥 卡</button><button class="vtab" data-v="summary">📋 總結</button><button class="vtab" data-v="log">📒 紀錄</button><button class="vtab" data-v="review">🔍 檢討</button></div>
 
 <div class="view on" id="v-cards">
-  <div class="tabs" id="tabs"><button class="tab on" data-f="top">今日值得睇</button><button class="tab" data-f="go">🟢</button><button class="tab" data-f="wait">🟡</button><button class="tab" data-f="stop">🔴</button><button class="tab" data-f="day">⚡ 即日</button><button class="tab" data-f="all">全部</button></div>
+  <div class="tabs" id="tabs"><button class="tab on" data-f="top">今日值得睇</button><button class="tab" data-f="go">🟢</button><button class="tab" data-f="wait">🟡</button><button class="tab" data-f="stop">🔴</button><button class="tab" data-f="watch">⭐ 自選</button><button class="tab" data-f="day">⚡ 即日</button><button class="tab" data-f="all">全部</button></div>
   <div class="grid" id="cards"></div>
 </div>
 
@@ -143,9 +143,9 @@ table.rv{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}table
   <div class="muted" style="padding-bottom:12px">匯出去 GitHub：<button class="btn sec sm" id="exTrades">paper trades</button> <button class="btn sec sm" id="exReal">真實買賣</button> <button class="btn sec sm" id="exParams">參數</button>（貼落 repo 對應嘅 json 檔）</div>
 </details>
 
-<details><summary>Watchlist（加減股票）</summary>
-  <div class="muted" id="wlNote">全市場已經掃晒（夠成交嘅股）。呢度只係揀你想置頂嘅。</div>
-  <div class="ctl"><input id="addCode" placeholder="代號" maxlength="8"><button class="btn sm" id="addBtn">加</button><button class="btn sec sm" id="resetBtn">還原預設</button></div>
+<details id="wlBox"><summary>⭐ 自選（Watchlist）</summary>
+  <div class="muted" id="wlNote"></div>
+  <div class="ctl"><input id="addCode" placeholder="代號" maxlength="8"><button class="btn sm" id="addBtn">加</button><button class="btn sec sm" id="resetBtn">匯出</button></div>
   <div class="small" id="wl"></div>
 </details>
 
@@ -180,7 +180,7 @@ const PDESC={stopATR:['止蝕最闊（ATR 倍數）',1.5,4],lookLow:['止蝕參�
 let P=Object.assign({},DEFP,LS.get('params',{}));
 let market='HK', view='cards', filter='top', mcp=null, samplePromise=null, busy=false, liveTimer=null, liveLog={at:null,ok:null,msg:''};
 const state={HK:{rows:[],idx:{},at:null},US:{rows:[],idx:{},at:null}};
-const watchOf=m=>LS.get('watch_'+m,Object.keys(CFG[m].names));
+const watchOf=m=>LS.get('watchv2_'+m,[]); const setWatch=(m,w)=>LS.set('watchv2_'+m,w); const inWatch=(m,c)=>watchOf(m).includes(c);
 const money=n=>Number.isFinite(n)?CFG[market].cur+n.toFixed(n>=100?1:2):'—';
 
 /* ---------- data: static json from this repo (GitHub Pages) ---------- */
@@ -239,6 +239,7 @@ async function live(){ if(busy||document.hidden) return; const m=market; if(!sta
   catch(e){ liveLog={at:Date.now(),ok:false,msg:errMsg(e)}; renderMarket(); } }
 /* ---------- render ---------- */
 function visibleRows(){ const rows=state[market].rows, order={'🟢':0,'🟡':1,'🔴':2}; let list=rows.slice();
+  if(filter==='watch'){ const w=watchOf(market); return list.filter(r=>w.includes(r.code)).sort((x,y)=>order[x.a.lamp]-order[y.a.lamp]||y.a.rr-x.a.rr); }
   if(filter==='day'){ list=list.filter(r=>dayFor(r)); return list.sort((x,y)=>order[dayFor(x).lamp]-order[dayFor(y).lamp]||dayFor(y).rr-dayFor(x).rr); }
   if(filter==='top') list=list.filter(r=>r.a.lamp==='🟢'||r.a.word==='等回調'); else if(filter!=='all') list=list.filter(r=>lampCls(r.a.lamp)===filter);
   return list.sort((x,y)=>order[x.a.lamp]-order[y.a.lamp]||y.a.rr-x.a.rr); }
@@ -252,7 +253,7 @@ function renderMarket(){ const cfg=CFG[market], st=state[market], rows=st.rows, 
   $('asof').textContent=rows.length?`收市掃描 ${st.date||''} · 報價 ${lt?fmtTime(lt):'—'}${market==='US'&&LS.get('fh_key','')?'（Finnhub 即時，每 10 秒）':'（延遲約 15 分鐘，每 5 分鐘更新）'}${ll}`:''; }
 function cardHTML(r,i){const a=r.a;return `
   <div class="card ${lampCls(a.lamp)}">
-    <div class="row"><div class="stock">${esc(r.code)} ${esc(r.name)}<small>${r.live?'報價 '+esc(fmtTime(r.liveAt)):'收市 '+esc(a.date)} · 日均成交 ${CFG[market].cur}${a.turnover.toFixed(0)}M</small></div><div class="lamp"><div class="e">${a.lamp}</div><div class="w">${esc(a.word)}</div></div></div>
+    <div class="row"><div class="stock"><a href="#" data-star="${esc(r.code)}" style="text-decoration:none;color:var(--wait)" title="自選">${inWatch(market,r.code)?"★":"☆"}</a> ${esc(r.code)} ${esc(r.name)}<small>${r.live?'報價 '+esc(fmtTime(r.liveAt)):'收市 '+esc(a.date)} · 日均成交 ${CFG[market].cur}${a.turnover.toFixed(0)}M</small></div><div class="lamp"><div class="e">${a.lamp}</div><div class="w">${esc(a.word)}</div></div></div>
     <div class="price">${r.live?money(r.live.p):money(a.entry)} <span class="chg ${(r.live?r.live.chg:a.chg)>=0?'up':'dn'}">${pct(r.live?r.live.chg:a.chg)}</span>${r.live?'':' <span class="small">收市價</span>'}</div>
     <div class="tf"><span>今日 ${a.tf.today}</span><span>短線 ${a.lamp}</span><span>中線 ${a.tf.mid}</span><span>長線 ${a.tf.long}</span></div>
     ${dayLine(r)}
@@ -262,8 +263,10 @@ function cardHTML(r,i){const a=r.a;return `
     <div class="council" id="c${i}"></div>
   </div>`;}
 function renderCards(){ const list=visibleRows(), rows=state[market].rows;
-  if(!list.length){ $('cards').innerHTML=`<div class="panel muted">${rows.length?(filter==='top'?'今日冇 🟢，唔做都係一個決定。睇下「全部」。':filter==='day'?'而家冇即日數據（未開市，或者 quotes 未跑）。':'呢個燈冇股票。'):'等緊報價…'}</div>`; return; }
-  $('cards').innerHTML=list.slice(0,80).map(r=>cardHTML(r,rows.indexOf(r))).join('')+(list.length>80?'<div class="panel muted">只顯示頭 80 隻（共 '+list.length+'）。</div>':''); }
+  if(!list.length&&!(filter==='watch'&&watchOf(market).length)){ $('cards').innerHTML=`<div class="panel muted">${rows.length?(filter==='top'?'今日冇 🟢，唔做都係一個決定。睇下「全部」。':filter==='day'?'而家冇即日數據（未開市，或者 quotes 未跑）。':filter==='watch'?'未有自選。卡上撳 ☆ 加。':'呢個燈冇股票。'):'等緊報價…'}</div>`; return; }
+  const missing=filter==='watch'?watchOf(market).filter(c=>!rows.find(r=>r.code===c)):[];
+  const missHTML=missing.map(c=>{const q=(quotes[market]||{})[c];return `<div class="card"><div class="row"><div class="stock"><a href="#" data-star="${esc(c)}" style="text-decoration:none;color:var(--wait)">★</a> ${esc(c)} ${esc(CFG[market].names[c]||'')}<small>唔喺掃描範圍（成交太少、股價太低，或者代號錯）</small></div></div>${q?`<div class="price">${money(q.p)} <span class="chg ${q.chg>=0?'up':'dn'}">${pct(q.chg)}</span></div>`:'<div class="muted">冇訊號。匯出 watch.json 之後 GitHub 會攞埋佢嘅報價。</div>'}</div>`}).join('');
+  $('cards').innerHTML=missHTML+list.slice(0,80).map(r=>cardHTML(r,rows.indexOf(r))).join('')+(list.length>80?'<div class="panel muted">只顯示頭 80 隻（共 '+list.length+'）。</div>':''); }
 function zoneHTML(a){ const z=a.zone; return `<div class="zone">
    <div class="z buy">理想買入區<b>${z?money(z[0])+' – '+money(z[1]):'唔買'}</b>${a.setup==='pullback'||a.setup==='uptrend'?'20 日線附近':a.setup==='breakout'?'突破位':a.setup==='over'?'等回調到呢度':'趨勢向下'}</div>
    <div class="z stop">止蝕（買咗就守）<b>${money(a.stop)}</b>−${a.riskP.toFixed(1)}%</div>
@@ -477,9 +480,11 @@ function setView(){ document.querySelectorAll('.vtab').forEach(t=>t.classList.to
 document.querySelectorAll('.vtab').forEach(t=>t.onclick=()=>{view=t.dataset.v;setView();});
 document.querySelectorAll('.mtab').forEach(t=>t.onclick=async()=>{ market=t.dataset.m; document.querySelectorAll('.mtab').forEach(x=>x.classList.toggle('on',x===t)); if(!state[market].rows.length) loadCache(market); renderAll(); if(!state[market].rows.length||Date.now()-state[market].at>4*3600*1000) await scan(market); else live(); });
 $('tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(!b)return;filter=b.dataset.f;document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t===b));renderCards();});
-function renderWl(){ const w=watchOf(market), names=CFG[market].names; $('wlNote').textContent=CFG[market].note; $('wl').textContent=w.map(c=>c+(names[c]?' '+names[c]:'')).join('、'); }
-$('addBtn').onclick=()=>{ const c=CFG[market].norm($('addCode').value.trim()); if(!c) return; const w=watchOf(market); if(!w.includes(c)) w.push(c); LS.set('watch_'+market,w); $('addCode').value=''; renderWl(); scan(market); };
-$('resetBtn').onclick=()=>{ LS.set('watch_'+market,Object.keys(CFG[market].names)); renderWl(); scan(market); };
+function renderWl(){ const w=watchOf(market); $('wlNote').innerHTML='全市場已經自動掃晒。自選係你特別想跟嘅股：卡上撳 ☆ 或者喺度打代號加，之後喺 🔥 卡撳「⭐ 自選」就淨係睇佢哋。想 GitHub 幫佢哋攞即時報價同即日數據，撳「匯出」貼落 repo 嘅 <b>watch.json</b>。';
+  $('wl').innerHTML=w.length?w.map(c=>{const r=state[market].rows.find(x=>x.code===c);return `<span class="chip" style="display:inline-block;margin:3px">${esc(c)} ${esc(r?r.name:(CFG[market].names[c]||''))} <a href="#" data-unwatch="${esc(c)}" style="color:var(--stop);text-decoration:none">✕</a></span>`}).join(''):'未有自選。'; }
+$('addBtn').onclick=()=>{ const c=CFG[market].norm($('addCode').value.trim()); if(!c) return; const w=watchOf(market); if(!w.includes(c)) w.push(c); setWatch(market,w); $('addCode').value=''; renderAll(); toast('已加入自選 '+c); }; 
+$('resetBtn').onclick=()=>copyText(JSON.stringify({HK:watchOf('HK'),US:watchOf('US')}),'已 copy，貼落 repo 嘅 watch.json');
+document.addEventListener('click',ev=>{ const u=ev.target.closest('[data-unwatch]'); if(u){ ev.preventDefault(); setWatch(market,watchOf(market).filter(c=>c!==u.dataset.unwatch)); renderAll(); return; } const st=ev.target.closest('[data-star]'); if(st){ ev.preventDefault(); const c=st.dataset.star, w=watchOf(market); setWatch(market,w.includes(c)?w.filter(x=>x!==c):[...w,c]); renderAll(); } });
 $('refresh').onclick=()=>scan(market);
 
 /* ---------- Finnhub real-time (US only, optional key) ---------- */

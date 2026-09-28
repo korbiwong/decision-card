@@ -22,6 +22,9 @@ def main():
     for t in load("trades.json", []):
         if t.get("status", "open") == "open": want[t.get("m", "HK")].add(str(t["code"]))
     for a in load("alerts.json", []): want[a.get("m", "HK")].add(str(a["code"]))
+    wl = load("watch.json", {})
+    for m in ("HK", "US"):
+        for c in wl.get(m, []): want[m].add(str(c))
     for e in load("real.json", []):
         if e.get("sell") is None: want[e.get("m", "HK")].add(str(e["code"]))
     q = {"at": now.isoformat(timespec="minutes"), "HK": {}, "US": {}}
@@ -43,7 +46,7 @@ def main():
     for m in ("HK", "US"):
         sig = load(f"signals_{m}.json", {})
         rows = sorted(sig.get("all", []), key=lambda r: (r["lamp"] != "🟢", -r.get("volR", 0)))
-        codes = list(dict.fromkeys([r["code"] for r in rows[:24]] + [c for c in want[m] if c not in {r["code"] for r in rows[:24]}]))[:40]
+        codes = list(dict.fromkeys([str(c) for c in wl.get(m, [])] + [r["code"] for r in rows[:24]] + [c for c in want[m]]))[:50]
         syms = [tick(m, c) for c in codes]
         if not syms: continue
         try:
