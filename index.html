@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-HK">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="決策卡">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.png">
+<meta name="theme-color" content="#14213d">
+<title>決策卡 · 港股 · 美股</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+HK:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#fff;--page:#eef1f6;--ink:#14213d;--ink2:#4a5470;--ink3:#8a92a8;--rule:#d8dde8;--field:#f4f6fa;
+--go:#1f8a5b;--gos:#e2f4ea;--wait:#c98a06;--waits:#fbf1d6;--stop:#c8352e;--stops:#fae3e1;--act:#2f5bea;--actink:#fff;
+--sh:0 1px 0 rgba(20,33,61,.06),0 10px 24px -14px rgba(20,33,61,.25);
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--paper:#1b2236;--page:#0f1422;--ink:#eef1f8;--ink2:#b7bfd3;--ink3:#7c869f;--rule:#2c3550;--field:#232c44;
+--go:#3fbf83;--gos:#173628;--wait:#e6ab2e;--waits:#3a2f12;--stop:#f0655c;--stops:#3f1d1b;--act:#5f83ff;--actink:#0f1422;--sh:0 10px 24px -14px rgba(0,0,0,.6)}}
+:root[data-theme="dark"]{--paper:#1b2236;--page:#0f1422;--ink:#eef1f8;--ink2:#b7bfd3;--ink3:#7c869f;--rule:#2c3550;--field:#232c44;
+--go:#3fbf83;--gos:#173628;--wait:#e6ab2e;--waits:#3a2f12;--stop:#f0655c;--stops:#3f1d1b;--act:#5f83ff;--actink:#0f1422;--sh:0 10px 24px -14px rgba(0,0,0,.6)}
+*{box-sizing:inherit}html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
+body{margin:0;background:var(--page);color:var(--ink);font:16px/1.55 "Noto Sans HK","PingFang HK","Microsoft JhengHei",system-ui,sans-serif;font-feature-settings:"tnum" 1;-webkit-font-smoothing:antialiased}
+.wrap{max-width:640px;margin:auto;padding:14px 14px 70px}
+h1{font-size:24px;font-weight:900;margin:0;line-height:1.15}.sub{color:var(--ink2);font-size:13px;margin-top:2px}
+h2{font-size:17px;margin:22px 0 10px}
+.panel{background:var(--paper);border-radius:16px;padding:14px 16px;margin-top:12px;box-shadow:var(--sh)}
+.muted{color:var(--ink2);font-size:14px}.small{font-size:12px;color:var(--ink3)}
+.btn{border:0;background:var(--act);color:var(--actink);padding:11px 14px;border-radius:10px;cursor:pointer;font:inherit;font-weight:700;font-size:15px}.btn.sec{background:var(--field);color:var(--ink)}.btn.sm{padding:7px 11px;font-size:13px;border-radius:9px}.btn:disabled{opacity:.5;cursor:default}
+.status{font-size:13px;margin-top:8px;color:var(--ink2)}.err{background:var(--stops);padding:9px 12px;border-radius:10px;margin-top:8px;font-size:14px;line-height:1.45}.ok{background:var(--gos);padding:9px 12px;border-radius:10px;margin-top:8px;font-size:14px}
+.mk{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.bx{background:var(--field);border-radius:12px;padding:10px 12px}.bx .k{font-size:12px;color:var(--ink2)}.bx .v{font-size:19px;font-weight:900;line-height:1.2}
+.prog{height:6px;background:var(--field);border-radius:3px;overflow:hidden;margin-top:10px}.prog i{display:block;height:100%;width:0;background:var(--act);transition:width .3s}
+.mtabs{display:flex;gap:8px;margin-top:12px}.mtab{flex:1;border:0;padding:11px;border-radius:12px;background:var(--paper);color:var(--ink);font:inherit;font-size:16px;font-weight:900;cursor:pointer;box-shadow:var(--sh)}.mtab.on{background:var(--ink);color:var(--page)}
+.vtabs{display:flex;gap:6px;margin-top:12px}.vtab{flex:1;border:0;padding:9px;border-radius:10px;background:var(--field);color:var(--ink);font:inherit;font-size:14px;font-weight:700;cursor:pointer}.vtab.on{background:var(--act);color:var(--actink)}
+.tabs{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}.tab{border:0;padding:7px 12px;border-radius:999px;background:var(--field);color:var(--ink);font:inherit;font-size:13px;font-weight:700;cursor:pointer}.tab.on{background:var(--ink);color:var(--page)}
+.view{display:none}.view.on{display:block}
+.grid{display:flex;flex-direction:column;gap:12px;margin-top:12px}
+.card{background:var(--paper);border-radius:16px;padding:14px 16px 14px 20px;box-shadow:var(--sh);position:relative;overflow:hidden;--light:var(--ink3)}
+.card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:7px;background:var(--light)}
+.card.go{--light:var(--go)}.card.wait{--light:var(--wait)}.card.stop{--light:var(--stop)}
+.row{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.stock{font-size:18px;font-weight:700;line-height:1.2}.stock small{display:block;color:var(--ink3);font-size:12px;font-weight:500;margin-top:2px}
+.lamp{text-align:right;flex:none}.lamp .e{font-size:28px;line-height:1}.lamp .w{font-size:13px;font-weight:700;color:var(--light)}
+.price{font-size:26px;font-weight:900;margin:8px 0 0}.chg{font-size:14px;font-weight:700}.chg.up{color:var(--go)}.chg.dn{color:var(--stop)}
+.tf{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 0}.tf span{font-size:12px;background:var(--field);border-radius:999px;padding:4px 9px}
+.stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin:10px 0}.st{background:var(--field);padding:8px 10px;border-radius:10px;font-size:12px;color:var(--ink2)}.st b{display:block;font-size:16px;color:var(--ink)}.st b.go{color:var(--go)}.st b.stop{color:var(--stop)}
+.why{font-size:14px;margin:4px 0 10px}.why b{font-weight:700}
+.acts{display:flex;gap:8px;flex-wrap:wrap}.acts .btn{flex:1;min-width:30%}
+.council,.sumbox,.newsbox{display:none;border-top:1px dashed var(--rule);margin-top:12px;padding-top:10px}
+.sum{background:var(--ink);color:var(--page);border-radius:12px;padding:10px 12px;font-weight:700;font-size:15px;margin-bottom:8px}
+.m{padding:7px 0;border-bottom:1px solid var(--rule);font-size:14px}.m b{display:block}.m ul{margin:2px 0 0;padding-left:18px}
+.chair{border-radius:12px;padding:10px 12px;margin-top:8px;background:var(--gos);font-size:14px}.chair.stop{background:var(--stops)}.chair.wait{background:var(--waits)}.chair div{margin:3px 0}
+.tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;background:var(--field);color:var(--ink2);margin-left:6px;vertical-align:middle;font-weight:500}
+.zone{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}.z{border-radius:12px;padding:10px 12px;font-size:13px}.z b{display:block;font-size:17px;font-weight:900}.z.buy{background:var(--gos)}.z.sell{background:var(--field)}.z.stop{background:var(--stops)}
+.plan{font-size:14px;line-height:1.55}.plan h4{margin:10px 0 4px;font-size:14px}.plan ul{margin:0;padding-left:18px}
+.news{border-top:1px solid var(--rule);padding:8px 0;font-size:14px}.news .v{font-weight:900}.news .v.good{color:var(--go)}.news .v.bad{color:var(--stop)}.news a{color:var(--act);text-decoration:none;font-size:12px}
+.log{display:flex;flex-direction:column;gap:8px}.en{background:var(--paper);border-radius:12px;padding:10px 12px;box-shadow:var(--sh);border-left:6px solid var(--light);--light:var(--ink3);font-size:14px}
+.en.target{--light:var(--go)}.en.stop{--light:var(--stop)}.en.open{--light:var(--wait)}.en .t{display:flex;justify-content:space-between;font-weight:700}.en .t small{color:var(--ink3);font-weight:500}
+.en .r{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}.chip{border:1px solid var(--rule);background:transparent;color:var(--ink);border-radius:999px;padding:4px 10px;font:inherit;font-size:13px;cursor:pointer}.chip.sel{background:var(--ink);color:var(--page);border-color:var(--ink)}
+.stat4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px}.s4{background:var(--paper);border-radius:12px;padding:8px;text-align:center;box-shadow:var(--sh)}.s4 .v{font-size:20px;font-weight:900}.s4 .k{font-size:11px;color:var(--ink2)}
+details{background:var(--paper);border-radius:14px;box-shadow:var(--sh);padding:0 16px;margin-top:12px}summary{cursor:pointer;padding:12px 0;font-weight:700;font-size:15px;list-style:none}summary::after{content:" +";color:var(--ink3)}details[open] summary::after{content:" –"}
+.ctl{display:flex;gap:8px;margin:6px 0 12px}.ctl input{flex:1;padding:10px;border:1px solid var(--rule);border-radius:10px;background:var(--field);color:var(--ink);font:inherit;min-width:0}
+.foot{font-size:12px;color:var(--ink3);margin-top:24px;line-height:1.5}
+.en.hit{--light:var(--go);background:var(--gos)}.toast{position:fixed;left:12px;right:12px;bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--page);padding:12px 14px;border-radius:14px;font-weight:700;z-index:9;box-shadow:var(--sh);display:none}.toast.show{display:block}
+.en.real{--light:var(--act)}.en.win{--light:var(--go)}.en.loss{--light:var(--stop)}.pl{font-size:18px;font-weight:900}.pl.up{color:var(--go)}.pl.dn{color:var(--stop)}
+.sell{display:flex;gap:6px;margin-top:6px}.sell input{flex:1;padding:8px;border:1px solid var(--rule);border-radius:9px;background:var(--field);color:var(--ink);font:inherit;min-width:0}
+.banner{background:var(--waits);border-radius:14px;padding:12px 14px;margin-top:12px;font-size:14px;display:none}.banner.show{display:block}
+table.rv{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}table.rv th,table.rv td{padding:6px 4px;border-bottom:1px solid var(--rule);text-align:right}table.rv th:first-child,table.rv td:first-child{text-align:left}table.rv th{color:var(--ink2);font-weight:500;font-size:12px}
+.prop{background:var(--field);border-radius:12px;padding:10px 12px;margin-top:8px;font-size:14px}.prop b{display:block}.prop .row{margin-top:6px}
+.miss{border-top:1px solid var(--rule);padding:8px 0;font-size:13px}.miss b{font-weight:700}
+.params{font-size:13px;color:var(--ink2);line-height:1.6}
+@media(max-width:400px){.mk{grid-template-columns:1fr 1fr}.stat4{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body><div class="wrap">
+<div style="display:flex;align-items:center;gap:10px"><svg width="40" height="40" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#14213d"/><polyline points="10,44 22,34 30,38 42,24 54,16" fill="none" stroke="#3fbf83" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><polyline points="44,16 54,16 54,26" fill="none" stroke="#3fbf83" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><rect x="10" y="50" width="44" height="4" rx="2" fill="#5f83ff"/></svg><h1>決策卡</h1></div>
+<div class="sub">開咗就自動掃。先計輸幾多，再諗賺幾多。</div>
+
+<div class="mtabs"><button class="mtab on" data-m="HK">🇭🇰 港股</button><button class="mtab" data-m="US">🇺🇸 美股</button></div>
+
+<div class="panel">
+  <div class="row"><div><b id="mkTitle">📊 今日大市</b><div class="small" id="asof">載入中…</div></div><button class="btn sec sm" id="refresh">↻ 更新</button></div>
+  <div class="mk" id="mk" style="margin-top:10px"></div>
+  <div class="prog" id="prog"><i></i></div>
+  <div class="status" id="status">準備緊…</div>
+</div>
+
+<div class="vtabs"><button class="vtab on" data-v="cards">🔥 卡</button><button class="vtab" data-v="summary">📋 總結</button><button class="vtab" data-v="day">⚡ 單日</button><button class="vtab" data-v="log">📒 紀錄</button><button class="vtab" data-v="review">🔍 檢討</button></div>
+
+<div class="view on" id="v-cards">
+  <div class="tabs" id="tabs"><button class="tab on" data-f="top">今日值得睇</button><button class="tab" data-f="go">🟢</button><button class="tab" data-f="wait">🟡</button><button class="tab" data-f="stop">🔴</button><button class="tab" data-f="all">全部</button></div>
+  <div class="grid" id="cards"></div>
+</div>
+
+<div class="view" id="v-summary">
+  <div class="panel"><b>今日最值得睇嘅幾隻</b><div class="muted">按 R:R 同趨勢排。每隻有理想買入區、分段賣出價、止蝕、短中長線同新聞分析。撳「總結＋論據」：先搵新聞，再由 Claude 寫支持論據、反方論據，每條註明來源。</div></div>
+  <div class="grid" id="sumcards"></div>
+</div>
+
+<div class="view" id="v-day">
+  <div class="panel"><b>⚡ 單日買賣（即日）</b><div class="muted">用 5 分鐘 K 線睇今日：開市區間（頭 30 分鐘）、VWAP、成交。數據每 15 分鐘由 GitHub 更新，Yahoo 本身再延遲 15 分鐘——即日炒賣用呢個數據係唔夠快嘅，呢度係練習睇型態，唔好用嚟落即市單。</div><div class="status" id="dayStatus"></div></div>
+  <div class="grid" id="daycards"></div>
+</div>
+
+<div class="view" id="v-log">
+  <h2 style="margin-top:12px">🔔 價格提醒</h2>
+  <div class="panel" style="margin-top:0">
+    <div class="muted">入代號同理想價，到價就彈通知（要開住個 app）。真實買入嗰陣填咗「理想賣出價」都會自動加一個，連埋 app 嘅止蝕位。</div>
+    <div class="ctl" style="flex-wrap:wrap"><input id="aCode" placeholder="代號" style="flex:1 1 30%"><select id="aDir" style="flex:1 1 30%;padding:10px;border:1px solid var(--rule);border-radius:10px;background:var(--field);color:var(--ink);font:inherit"><option value="up">升到</option><option value="down">跌到</option></select><input id="aPrice" type="number" step="0.001" inputmode="decimal" placeholder="價格" style="flex:1 1 30%"><button class="btn" id="aAdd" style="flex:1 1 70%">加提醒</button><button class="btn sec" id="aExport" style="flex:1 1 25%">匯出</button></div>
+    <div class="status" id="aPerm"></div>
+    <div class="log" id="aLog" style="margin-top:8px"></div>
+  </div>
+  <h2 style="margin-top:12px">💰 真實買賣 <span class="tag">你真係買咗嘅</span></h2>
+  <div class="panel" style="margin-top:0">
+    <div class="muted">買咗就記低。之後用最新價計緊賺定蝕；賣出時入賣出價，就有實際賺蝕。同時對返 app 當時嘅止蝕同目標。</div>
+    <div class="ctl" style="flex-wrap:wrap">
+      <input id="rCode" placeholder="代號" style="flex:1 1 30%"><input id="rPrice" type="number" step="0.001" inputmode="decimal" placeholder="買入價" style="flex:1 1 30%"><input id="rQty" type="number" step="any" inputmode="decimal" placeholder="股數" style="flex:1 1 25%">
+      <input id="rDate" type="date" style="flex:1 1 45%"><input id="rFee" type="number" step="0.01" inputmode="decimal" placeholder="手續費（可留空）" style="flex:1 1 45%"><input id="rIdeal" type="number" step="0.001" inputmode="decimal" placeholder="理想賣出價（會加提醒）" style="flex:1 1 100%">
+      <button class="btn" id="rAdd" style="flex:1 1 100%">記低買入</button>
+    </div>
+    <div class="stat4" id="rStat"></div>
+    <div class="log" id="rLog"></div>
+  </div>
+  <h2>Paper trading 紀錄 <span class="tag">每次更新自動對目標／止蝕</span></h2>
+  <div class="stat4" id="stat4"></div>
+  <div class="log" id="log"></div>
+</div>
+
+<div class="view" id="v-review">
+  <div class="banner" id="rvBanner"></div>
+  <div class="panel"><b>系統自己嘅成績表</b><div class="muted">每次掃描，所有 🟢 訊號同 🟡「等回調」都會自動記低做 prediction（唔使你撳），之後用真實價格判定啱唔啱。呢度係評估套規則，唔係評估你。</div></div>
+  <div class="panel" id="rvStats"></div>
+  <div class="panel"><b>做錯咗嘅 🟢（最近）</b><div class="muted">睇返佢哋跌喺邊、止蝕係咪太窄、入場係咪追高。</div><div id="rvMiss"></div></div>
+  <div class="panel"><div class="row"><div><b>10 日檢討</b><div class="muted">Claude 睇成績表同錯單，提議改參數；你逐項揀採唔採納。</div></div><button class="btn" id="rvRun">開始檢討</button></div><div id="rvOut"></div></div>
+  <div class="panel"><b>而家用緊嘅參數</b><div class="params" id="rvParams"></div><div class="row" style="margin-top:8px"><button class="btn sec sm" id="rvReset">還原預設參數</button></div></div>
+  <div class="panel"><b>檢討紀錄</b><div id="rvHist" class="muted"></div></div>
+</div>
+
+<details><summary>設定（Claude 功能，選填）</summary>
+  <div class="muted">開會、總結＋論據、新聞分析要 Anthropic API key（console.anthropic.com）。冇 key 就淨係睇訊號。Key 只存喺你部機。</div>
+  <div class="ctl"><input id="anKey" type="password" placeholder="Anthropic key sk-ant-…" autocomplete="off"><button class="btn sm" id="anSave">儲存</button></div>
+  <div class="muted">美股即時價（免費）：去 finnhub.io 登記，攞 API key 貼呢度。有 key 嘅話美股 tab 每 10 秒更新，真即時。港股 Finnhub 免費版冇，維持 15 分鐘延遲。</div>
+  <div class="ctl"><input id="fhKey" type="password" placeholder="Finnhub key" autocomplete="off"><button class="btn sm" id="fhSave">儲存</button></div>
+  <div class="muted" style="padding-bottom:12px">匯出去 GitHub：<button class="btn sec sm" id="exTrades">paper trades</button> <button class="btn sec sm" id="exReal">真實買賣</button> <button class="btn sec sm" id="exParams">參數</button>（貼落 repo 對應嘅 json 檔）</div>
+</details>
+
+<details><summary>Watchlist（加減股票）</summary>
+  <div class="muted" id="wlNote">全市場已經掃晒（夠成交嘅股）。呢度只係揀你想置頂嘅。</div>
+  <div class="ctl"><input id="addCode" placeholder="代號" maxlength="8"><button class="btn sm" id="addBtn">加</button><button class="btn sec sm" id="resetBtn">還原預設</button></div>
+  <div class="small" id="wl"></div>
+</details>
+
+<details><summary>訊號同買賣價點計？</summary>
+  <div class="muted" style="padding-bottom:12px;line-height:1.6">
+  全部係透明規則，唔係預測。<br>
+  • 趨勢：收市價 vs 20 / 50 / 200 日線。短線睇 20，中線睇 50，長線睇 200。<br>
+  • 🟢 突破：收市高過 20 日高位，成交 ≥ 1.3 倍平時；🟢 回調企穩：上升趨勢回到 20 日線 ±3%<br>
+  • 🟡 等回調：今日升幅超過 2 個 ATR；🔴 唔做：跌穿 20 同 50 日線<br>
+  • 止蝕：10 日低位下少少，最闊 2.5 ATR。R:R 唔夠 1.5 → 降級<br>
+  • 理想買入區：回調型 = 20 日線 ±2%；突破型 = 20 日高位至高位 +2%；升得太急 = 等返 20 日線<br>
+  • 賣出：T1 = 買入 + 1.5 倍止蝕距離（先走一半），T2 = 60 日高位或 2.2 倍止蝕距離<br>
+  • 新聞：用你嘅 connector 搵最近新聞，Claude 判斷利好／利淡，但唔會改動任何價位
+  </div>
+</details>
+
+<p class="foot">練習同紀錄工具，唔係投資建議，唔會落真錢盤。收市後全市場掃描（HKEX 所有夠成交嘅股 + S&P 500 / Nasdaq-100）；交易時段港股每 5 分鐘、美股每 15 分鐘更新報價（Yahoo，延遲約 15 分鐘）。紀錄只存喺你部機。</p>
+<div class="toast" id="toast"></div>
+</div>
+
+<script>
+(function(){
+const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const LS={get:(k,d)=>{try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const pct=n=>Number.isFinite(n)?(n>=0?'+':'')+n.toFixed(1)+'%':'—', lampCls=l=>l==='🟢'?'go':l==='🔴'?'stop':'wait';
+const HK={'0700':'騰訊','9988':'阿里巴巴','3690':'美團','1810':'小米','9618':'京東','9888':'百度','0981':'中芯國際','1211':'比亞迪','2318':'中國平安','0005':'滙豐','0939':'建設銀行','1398':'工商銀行','3988':'中國銀行','0388':'港交所','0001':'長和','0016':'新鴻基地產','0823':'領展','1299':'友邦','2020':'安踏','2382':'舜宇光學','0175':'吉利','9999':'網易','1024':'快手','0027':'銀河娛樂','1928':'金沙中國','0883':'中海油','0857':'中石油','0386':'中石化','1088':'中國神華','0669':'創科實業','2313':'申洲國際','0241':'阿里健康','6618':'京東健康','1177':'中國生物製藥','2269':'藥明生物','1093':'石藥集團','3968':'招商銀行','0288':'萬洲國際','0941':'中國移動','0002':'中電','0003':'煤氣','0011':'恒生銀行','0012':'恒基地產','0017':'新世界','0066':'港鐵','0688':'中國海外','1109':'華潤置地','1113':'長實','1876':'百威亞太','2331':'李寧','3328':'交通銀行','9961':'攜程','0968':'信義光能','1888':'建滔積層板','3888':'金山軟件','0992':'聯想','2015':'理想汽車','9866':'蔚來','9868':'小鵬','6690':'海爾智家','1929':'周大福','0020':'商湯','9626':'嗶哩嗶哩','2899':'紫金礦業','1919':'中遠海控','2628':'中國人壽','0998':'中信銀行','6030':'中信証券','3993':'洛陽鉬業','0836':'華潤電力','1044':'恒安','0322':'康師傅','2319':'蒙牛','0291':'華潤啤酒','2333':'長城汽車','1766':'中國中車','0390':'中國中鐵','1186':'中國鐵建','3311':'中國建築國際','0914':'海螺水泥','2018':'瑞聲科技','0285':'比亞迪電子','0728':'中國電信','6160':'百濟神州','1801':'信達生物','9926':'康方生物','2359':'藥明康德','3692':'翰森製藥','0960':'龍湖','1997':'九龍倉置業','1972':'太古地產','2388':'中銀香港','1038':'長江基建','6823':'香港電訊','1128':'永利澳門','9633':'農夫山泉','0780':'同程旅行','9698':'萬國數據','0772':'閱文','6110':'滔搏','1910':'新秀麗','0019':'太古A','0763':'中興通訊','0868':'信義玻璃','2600':'中國鋁業','0358':'江西銅業','1378':'中國宏橋','1898':'中煤能源','0916':'龍源電力','0257':'光大環境','2196':'復星醫藥','1530':'三生製藥','0853':'微創醫療'};
+const US={AAPL:'Apple',MSFT:'Microsoft',NVDA:'Nvidia',AMZN:'Amazon',GOOGL:'Alphabet',META:'Meta',TSLA:'Tesla','BRK-B':'Berkshire',AVGO:'Broadcom',JPM:'JPMorgan',LLY:'Eli Lilly',V:'Visa',UNH:'UnitedHealth',XOM:'Exxon',MA:'Mastercard',COST:'Costco',HD:'Home Depot',PG:'P&G',JNJ:'J&J',ABBV:'AbbVie',NFLX:'Netflix',BAC:'Bank of America',CRM:'Salesforce',KO:'Coca-Cola',AMD:'AMD',PEP:'PepsiCo',TMO:'Thermo Fisher',CSCO:'Cisco',ADBE:'Adobe',MRK:'Merck',WMT:'Walmart',ORCL:'Oracle',ACN:'Accenture',MCD:"McDonald's",LIN:'Linde',ABT:'Abbott',DIS:'Disney',QCOM:'Qualcomm',INTU:'Intuit',TXN:'Texas Instr.',CAT:'Caterpillar',GE:'GE Aerospace',VZ:'Verizon',AMGN:'Amgen',IBM:'IBM',PM:'Philip Morris',NOW:'ServiceNow',ISRG:'Intuitive Surg.',GS:'Goldman',SPGI:'S&P Global',BKNG:'Booking',UBER:'Uber',HON:'Honeywell',AXP:'AmEx',PFE:'Pfizer',RTX:'RTX',LOW:"Lowe's",NEE:'NextEra',T:'AT&T',BLK:'BlackRock',C:'Citi',BA:'Boeing',SBUX:'Starbucks',PLTR:'Palantir',COIN:'Coinbase',MU:'Micron',AMAT:'Applied Mat.',LRCX:'Lam Research',PANW:'Palo Alto',SHOP:'Shopify',ARM:'Arm',SMCI:'Supermicro',TSM:'TSMC',ASML:'ASML',BABA:'Alibaba ADR',PDD:'PDD',NKE:'Nike',INTC:'Intel',DE:'Deere',UPS:'UPS',MRNA:'Moderna',ABNB:'Airbnb',SNOW:'Snowflake',CRWD:'CrowdStrike',MSTR:'MicroStrategy',HOOD:'Robinhood',RIVN:'Rivian',SOFI:'SoFi',MARA:'Marathon'};
+const CFG={HK:{names:HK,idx:['^HSI','^HSTECH'],idxName:{'^HSI':'恒指','^HSTECH':'科指'},cur:'$',sym:c=>String(parseInt(c,10)).padStart(4,'0')+'.HK',norm:v=>/^\d{1,5}$/.test(v)?String(parseInt(v,10)).padStart(4,'0'):null,note:'預設約 100 隻大成交港股。加代號例如 9971。',delay:'延遲約 15 分鐘'},
+           US:{names:US,idx:['^GSPC','^IXIC'],idxName:{'^GSPC':'S&P 500','^IXIC':'Nasdaq'},cur:'$',sym:c=>c,norm:v=>/^[A-Za-z.\-]{1,6}$/.test(v)?v.toUpperCase():null,note:'預設約 90 隻美股大市值股。加 ticker 例如 NVDA。',delay:'接近即時'}};
+const DEFP={stopATR:2.5,lookLow:10,rrMin:1.5,volRMin:1.3,overATR:2,pullBand:0.03,targetMult:2.2,expiryDays:20,marketFilter:false};
+const PDESC={stopATR:['止蝕最闊（ATR 倍數）',1.5,4],lookLow:['止蝕參考低位（日）',5,20],rrMin:['最低 R:R',1,3],volRMin:['突破要幾多倍成交',1,2],overATR:['幾多個 ATR 算升得太急',1.5,3],pullBand:['回調區闊度（±）',0.02,0.05],targetMult:['目標 = 幾倍止蝕距離',1.5,3],expiryDays:['訊號幾多日內要見效',10,40],marketFilter:['大市弱時唔出 🟢',false,true]};
+let P=Object.assign({},DEFP,LS.get('params',{}));
+let market='HK', view='cards', filter='top', mcp=null, samplePromise=null, busy=false, liveTimer=null, liveLog={at:null,ok:null,msg:''};
+const state={HK:{rows:[],idx:{},at:null},US:{rows:[],idx:{},at:null}};
+const watchOf=m=>LS.get('watch_'+m,Object.keys(CFG[m].names));
+const money=n=>Number.isFinite(n)?CFG[market].cur+n.toFixed(n>=100?1:2):'—';
+
+/* ---------- data: static json from this repo (GitHub Pages) ---------- */
+async function getJSON(f){ const r=await fetch(f+'?_='+Date.now(),{cache:'no-store'}); if(!r.ok) throw new Error(f+' '+r.status); return r.json(); }
+const ERR={}; const errMsg=e=>(e&&e.message)||'載入失敗';
+let quotes={at:null,HK:{},US:{}};
+/* ---------- rules ---------- */
+const sma=(a,n)=>a.length<n?null:a.slice(-n).reduce((s,x)=>s+x,0)/n;
+function analyse(bars){
+  const n=bars.length; if(n<30) return null; const last=bars[n-1], prev=bars[n-2];
+  const closes=bars.map(x=>x.c), vols=bars.map(x=>x.v), chg=(last.c-prev.c)/prev.c*100;
+  const s20=sma(closes,20), s50=sma(closes,50), s200=sma(closes,200);
+  const tr=bars.slice(1).map((x,i)=>Math.max(x.h-x.l,Math.abs(x.h-bars[i].c),Math.abs(x.l-bars[i].c)));
+  const atr=sma(tr,14)||(last.h-last.l), atrP=atr/last.c*100;
+  const hi20=Math.max(...bars.slice(-21,-1).map(x=>x.h)), lo10=Math.min(...bars.slice(-P.lookLow).map(x=>x.l)), hi60=Math.max(...bars.slice(-60).map(x=>x.h));
+  const av20=sma(vols.slice(0,-1),20)||last.v, volR=av20?last.v/av20:1;
+  const trend=s50?(last.c>s20&&s20>s50?'up':last.c<s20&&s20<s50?'down':'side'):(last.c>s20?'up':'down');
+  const entry=last.c, stop=Math.max(lo10-0.2*atr,entry-P.stopATR*atr), target=hi60>entry*1.03?hi60:entry+P.targetMult*(entry-stop);
+  const risk=entry-stop, riskP=risk/entry*100, rewP=(target-entry)/entry*100, rr=riskP>0?rewP/riskP:0;
+  let lamp='🟡',word='等',why=[],setup='none';
+  const over=chg>P.overATR*atrP, pullback=trend==='up'&&entry<=s20*(1+P.pullBand)&&entry>=s20*(1-P.pullBand), breakout=last.c>hi20&&volR>P.volRMin;
+  if(trend==='down'){lamp='🔴';word='唔做';setup='down';why.push('股價喺 20 日線同 50 日線之下，趨勢向下。')}
+  else if(over){word='等回調';setup='over';why.push(`今日升 ${pct(chg)}，超過兩個 ATR，追入 R:R 變差。`)}
+  else if(breakout){lamp='🟢';word='突破留意';setup='breakout';why.push(`收市高過 20 日高位，成交係平時 ${volR.toFixed(1)} 倍。`)}
+  else if(pullback){lamp='🟢';word='回調企穩';setup='pullback';why.push('上升趨勢中回到 20 日線附近，係較好嘅入場區。')}
+  else if(trend==='up'){setup='uptrend';why.push('趨勢向上但未有突破或回調訊號。')}
+  else why.push('橫行，方向未清。');
+  if(rr<P.rrMin&&lamp==='🟢'){lamp='🟡';word='R:R 唔夠';why.push(`回報 ${pct(rewP)} 對風險 −${riskP.toFixed(1)}%，唔夠 ${P.rrMin}:1，降級。`)}
+  if(volR<0.6) why.push('成交淡靜。');
+  let zone; if(setup==='pullback'||setup==='uptrend') zone=[s20*0.98,s20*1.02]; else if(setup==='breakout') zone=[hi20,hi20*1.02]; else if(setup==='over') zone=[s20,Math.max(s20,entry-atr)]; else zone=null;
+  const t1=entry+1.5*risk, t2=target;
+  const lt=s200?(last.c>s200&&s50>s200?'🟢':last.c<s200&&s50<s200?'🔴':'🟡'):'⚪';
+  const turnover=(closes.slice(-20).reduce((s,c,i)=>s+c*vols.slice(-20)[i],0)/20)/1e6;
+  return {lamp,word,why:why.join(' '),setup,entry,stop,target,t1,t2,zone,rr,riskP,rewP,chg,trend,volR,atrP,s20,s50,s200,hi20,date:last.d,aboveS20:last.c>s20,turnover,
+    tf:{today:chg>1?'🟢':chg<-1?'🔴':'🟡',mid:trend==='up'?'🟢':trend==='down'?'🔴':'🟡',long:lt}};
+}
+const score=r=>(r.a.lamp==='🟢'?100:r.a.word==='等回調'?50:r.a.lamp==='🟡'?20:0)+(r.a.tf.long==='🟢'?15:0)+(r.a.tf.mid==='🟢'?10:0)+Math.min(r.a.rr,4)*5;
+
+/* ---------- scan: load precomputed signals + quotes ---------- */
+async function scan(m){
+  m=m||market; if(busy) return; busy=true; $('refresh').disabled=true; const bar=$('prog').firstElementChild; bar.style.width='20%';
+  try{
+    const [sig,q]=await Promise.all([getJSON('signals_'+m+'.json'),getJSON('quotes.json').catch(()=>quotes)]); quotes=q||quotes;
+    const rows=(sig.all||[]).map(a=>({code:a.code,name:a.name||'',a,bars:(a.recent||[]).map(x=>({d:x.d,h:x.h,l:x.l,c:x.c})),liveAt:null}));
+    const idx={}; for(const i of (sig.indices||[])) idx[i.sym]={close:i.close,chg:i.chg,lamp:i.lamp,name:i.name,date:sig.date};
+    state[m]={rows,idx,at:Date.now(),date:sig.date,generated:sig.generated,breadth:sig.breadth};
+    applyQuotes(m); logPredictions(m); resolvePredictions(m); const n=autoCheck(m); checkAlerts(m);
+    if(m===market){ renderAll(); $('status').innerHTML=`<div class="ok">${sig.date} 收市掃描 ${rows.length} 隻：🟢 ${rows.filter(r=>r.a.lamp==='🟢').length}　🟡 ${rows.filter(r=>r.a.lamp==='🟡').length}　🔴 ${rows.filter(r=>r.a.lamp==='🔴').length}${n?'　· 自動判定咗 '+n+' 單':''}</div>`; }
+  }catch(e){ if(m===market) $('status').innerHTML='<div class="err">'+esc(errMsg(e))+'。如果係第一次，要先喺 GitHub Actions 跑一次「scan」。</div>'; }
+  bar.style.width='100%'; busy=false; $('refresh').disabled=false; setTimeout(()=>bar.style.width='0',800);
+}
+function applyQuotes(m){ const qm=quotes[m]||{}; for(const r of state[m].rows){ const q=qm[r.code]; if(!q) continue; r.live=q; r.liveAt=quotes.at; if(q.d>r.a.date){ const b=r.bars.find(b=>b.d===q.d); if(!b) r.bars.push({d:q.d,h:q.h,l:q.l,c:q.p}); else { b.h=Math.max(b.h,q.h); b.l=Math.min(b.l,q.l); b.c=q.p; } } }
+  for(const k of Object.keys(state[m].idx)){ const q=qm[k]; if(q){ state[m].idx[k].close=q.p; state[m].idx[k].chg=q.chg; state[m].idx[k].lamp=q.chg>0.5?'🟢':q.chg<-0.5?'🔴':'🟡'; } } }
+async function live(){ if(busy||document.hidden) return; const m=market; if(!state[m].rows.length) return;
+  try{ quotes=await getJSON('quotes.json'); applyQuotes(m); liveLog={at:Date.now(),ok:true,msg:''}; autoCheck(m); resolvePredictions(m); checkAlerts(m); renderAll(); }
+  catch(e){ liveLog={at:Date.now(),ok:false,msg:errMsg(e)}; renderMarket(); } }
+/* ---------- render ---------- */
+function visibleRows(){ const rows=state[market].rows, order={'🟢':0,'🟡':1,'🔴':2}; let list=rows.slice();
+  if(filter==='top') list=list.filter(r=>r.a.lamp==='🟢'||r.a.word==='等回調'); else if(filter!=='all') list=list.filter(r=>lampCls(r.a.lamp)===filter);
+  return list.sort((x,y)=>order[x.a.lamp]-order[y.a.lamp]||y.a.rr-x.a.rr); }
+function fmtTime(ts){ if(!ts) return ''; const d=typeof ts==='number'?new Date(ts*1000):new Date(ts); return d.toLocaleString('zh-HK',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',timeZone:market==='HK'?'Asia/Hong_Kong':'America/New_York'})+(market==='HK'?' HKT':' ET'); }
+function renderMarket(){ const cfg=CFG[market], st=state[market], rows=st.rows, b=rows.length?rows.filter(r=>r.a.aboveS20).length/rows.length:0;
+  $('mkTitle').textContent=market==='HK'?'📊 今日港股':'📊 今日美股';
+  $('mk').innerHTML=cfg.idx.map(k=>{const v=st.idx[k];return `<div class="bx"><div class="k">${esc((v&&v.name)||cfg.idxName[k])}</div><div class="v">${v?v.lamp+' '+pct(v.chg):'—'}</div><div class="k">${v?v.close.toLocaleString('en-US',{maximumFractionDigits:0}):''}</div></div>`}).join('')+
+  `<div class="bx"><div class="k">廣度（20 日線上）</div><div class="v">${rows.length?(b>=.6?'🟢':b<=.4?'🔴':'🟡')+' '+Math.round(b*100)+'%':'—'}</div><div class="k">${rows.length?rows.filter(r=>r.a.aboveS20).length+'/'+rows.length+' 隻':''}</div></div>`;
+  const lt=quotes.at||0;
+  const ll=liveLog.at?` · 上次自動更新 ${new Date(liveLog.at).toLocaleTimeString('zh-HK',{hour:'2-digit',minute:'2-digit'})} ${liveLog.ok?'✓':'✗ '+liveLog.msg}`:'';
+  $('asof').textContent=rows.length?`收市掃描 ${st.date||''} · 報價 ${lt?fmtTime(lt):'—'}${market==='US'&&LS.get('fh_key','')?'（Finnhub 即時，每 10 秒）':'（延遲約 15 分鐘，每 5 分鐘更新）'}${ll}`:''; }
+function cardHTML(r,i){const a=r.a;return `
+  <div class="card ${lampCls(a.lamp)}">
+    <div class="row"><div class="stock">${esc(r.code)} ${esc(r.name)}<small>${r.live?'報價 '+esc(fmtTime(r.liveAt)):'收市 '+esc(a.date)} · 日均成交 ${CFG[market].cur}${a.turnover.toFixed(0)}M</small></div><div class="lamp"><div class="e">${a.lamp}</div><div class="w">${esc(a.word)}</div></div></div>
+    <div class="price">${r.live?money(r.live.p):money(a.entry)} <span class="chg ${(r.live?r.live.chg:a.chg)>=0?'up':'dn'}">${pct(r.live?r.live.chg:a.chg)}</span>${r.live?'':' <span class="small">收市價</span>'}</div>
+    <div class="tf"><span>今日 ${a.tf.today}</span><span>短線 ${a.lamp}</span><span>中線 ${a.tf.mid}</span><span>長線 ${a.tf.long}</span></div>
+    <div class="stats"><div class="st">🎯 目標<b class="go">${money(a.target)}</b>${pct(a.rewP)}</div><div class="st">🛑 止蝕<b class="stop">${money(a.stop)}</b>−${a.riskP.toFixed(1)}%</div><div class="st">R:R<b>${a.rr.toFixed(1)} : 1</b>ATR ${a.atrP.toFixed(1)}%</div></div>
+    <div class="why"><b>點解？</b> ${esc(a.why)}<br><span class="muted">最大風險：跌穿 ${money(a.stop)}，趨勢假設失效。</span></div>
+    <div class="acts"><button class="btn" data-council="${i}">👥 五人開會</button><button class="btn sec" data-sum="${i}">📋 總結</button><button class="btn sec" data-save="${i}">記低 paper trade</button><button class="btn sec" data-real="${i}">💰 我買咗</button></div>
+    <div class="council" id="c${i}"></div>
+  </div>`;}
+function renderCards(){ const list=visibleRows(), rows=state[market].rows;
+  if(!list.length){ $('cards').innerHTML=`<div class="panel muted">${rows.length?(filter==='top'?'今日冇 🟢，唔做都係一個決定。睇下「全部」。':'呢個燈冇股票。'):'等緊報價…'}</div>`; return; }
+  $('cards').innerHTML=list.slice(0,80).map(r=>cardHTML(r,rows.indexOf(r))).join('')+(list.length>80?'<div class="panel muted">只顯示頭 80 隻（共 '+list.length+'）。</div>':''); }
+function zoneHTML(a){ const z=a.zone; return `<div class="zone">
+   <div class="z buy">理想買入區<b>${z?money(z[0])+' – '+money(z[1]):'唔買'}</b>${a.setup==='pullback'||a.setup==='uptrend'?'20 日線附近':a.setup==='breakout'?'突破位':a.setup==='over'?'等回調到呢度':'趨勢向下'}</div>
+   <div class="z stop">止蝕（買咗就守）<b>${money(a.stop)}</b>−${a.riskP.toFixed(1)}%</div>
+   <div class="z sell">T1 先走一半<b>${money(a.t1)}</b>+${((a.t1-a.entry)/a.entry*100).toFixed(1)}%</div>
+   <div class="z sell">T2 目標<b>${money(a.t2)}</b>+${a.rewP.toFixed(1)}%</div></div>`; }
+function renderSummary(){ const rows=state[market].rows; if(!rows.length){$('sumcards').innerHTML='<div class="panel muted">等緊報價…</div>';return}
+  const top=rows.slice().sort((x,y)=>score(y)-score(x)).slice(0,6);
+  $('sumcards').innerHTML=top.map(r=>{const a=r.a,i=rows.indexOf(r);return `<div class="card ${lampCls(a.lamp)}">
+    <div class="row"><div class="stock">${esc(r.code)} ${esc(r.name)}<small>${money(a.entry)} ${pct(a.chg)} · 數據 ${esc(fmtTime(r.liveAt)||a.date)}</small></div><div class="lamp"><div class="e">${a.lamp}</div><div class="w">${esc(a.word)}</div></div></div>
+    <div class="tf"><span>短線 ${a.lamp}</span><span>中線 ${a.tf.mid} ${a.trend==='up'?'向上':a.trend==='down'?'向下':'橫行'}</span><span>長線 ${a.tf.long} ${a.s200?(a.entry>a.s200?'200 日線上':'200 日線下'):'數據不足'}</span></div>
+    ${zoneHTML(a)}
+    <div class="why"><b>點解？</b> ${esc(a.why)}</div>
+    <div class="acts"><button class="btn" data-gen="${i}">✍️ 總結＋論據</button><button class="btn sec" data-news="${i}">📰 新聞分析</button><button class="btn sec" data-save="${i}">記低</button></div>
+    <div class="sumbox" id="s${i}"></div><div class="newsbox" id="n${i}"></div></div>`}).join(''); }
+function renderAll(){ renderMarket(); renderCards(); renderSummary(); renderLog(); renderWl(); renderReview(); renderReal(); renderAlerts(); }
+
+/* ---------- Claude via Anthropic API (optional key) ---------- */
+const anKey=()=>LS.get('an_key','');
+async function claudeJSON(prompt,useSearch){ const key=anKey(); if(!key) throw {code:'nokey'};
+  const body={model:'claude-sonnet-4-6',max_tokens:2000,messages:[{role:'user',content:prompt}]}; if(useSearch) body.tools=[{type:'web_search_20250305',name:'web_search',max_uses:3}];
+  const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify(body)});
+  const j=await r.json(); if(j.error) throw new Error(j.error.message);
+  const t=j.content.filter(b=>b.type==='text').map(b=>b.text).join('').replace(/```json|```/g,'').trim(); const a=t.indexOf('{'), b=t.lastIndexOf('}'); return JSON.parse(t.slice(a,b+1)); }
+function facts(r){const a=r.a;return `股票：${r.code} ${r.name}（${market==='HK'?'港股':'美股'}）｜現價 ${money(a.entry)}，今日 ${pct(a.chg)}
+規則訊號：${a.lamp} ${a.word}。趨勢 ${a.trend}；20 日線 ${money(a.s20)}，50 日線 ${a.s50?money(a.s50):'—'}，200 日線 ${a.s200?money(a.s200):'—'}；成交係平時 ${a.volR.toFixed(1)} 倍；ATR ${a.atrP.toFixed(1)}%
+理想買入區 ${a.zone?money(a.zone[0])+'–'+money(a.zone[1]):'冇（趨勢向下）'}｜🛑止蝕 ${money(a.stop)}（−${a.riskP.toFixed(1)}%）｜T1 ${money(a.t1)}｜T2 ${money(a.t2)}（+${a.rewP.toFixed(1)}%）｜R:R ${a.rr.toFixed(1)}:1
+系統理由：${a.why}`;}
+const RULES='你只可以解釋已計好嘅數字，唔可以自己作任何價位、百分比或訊號。用香港口語廣東話（嘅／喺／唔係／畀），短句，技術詞保留英文。';
+function councilPrompt(r){return `你係一個五人委員會。${RULES}\n審一單 paper trade：\n${facts(r)}\n五位顧問各自獨立講，唔可以提到對方：1 反向懷疑論者（寫失敗驗屍報告）2 第一性原理工程師（真正 load-bearing 嘅事實）3 擴張主義者（無限資源點做，最後一樣帶返現實）4 局外人（唔識股票嘅人邊度唔明）5 執行者（聽朝一件具體會產生證據嘅事）。每位 2 至 3 點，每點最多 20 字，動詞行先，每位畀燈 🟢🟡🔴。然後交叉批評（只講「一位成員」），然後主席裁決，可以判買家輸。\n只回覆 JSON，冇 fence：{"summary":"一句30字內","advisors":[{"name":"","lamp":"","points":[""]}],"critique":{"strongest":"","weakest":"","clash":["",""]},"chairman":{"lamp":"","decision":"","risk":"","action":"","overruled":""}}`;}
+function summaryPrompt(r){return `${RULES}\n為新手寫一頁總結：\n${facts(r)}\n只回覆 JSON，冇 fence：{"headline":"一句講晒值唔值得睇（25字內）","why":["點解值得留意，3點，每點20字內"],"risks":["主要風險，3點，每點20字內"],"short":"短線（幾日至幾星期）建議一句","mid":"中線（1至3個月）建議一句","long":"長線（半年以上）建議一句，只可以用 200 日線同趨勢講，唔好作基本面","plan":"用買入區、止蝕、T1、T2 寫一個具體執行計劃，60字內","verdict":"🟢|🟡|🔴"}`;}
+function newsPrompt(r,items){return `${RULES}\n以下係關於 ${r.code} ${r.name} 嘅最近新聞（標題＋摘錄）。逐條判斷對股價係利好、利淡定中性，一句理由。唔好作新聞，冇資料就話冇。\n${items.map((n,i)=>`[${i}] ${n.title}\n${(n.excerpts||[]).join(' ').slice(0,400)}\n日期：${n.publish_date||'?'}`).join('\n\n')}\n只回覆 JSON，冇 fence：{"overall":"整體一句（30字內）","overallLamp":"🟢|🟡|🔴","items":[{"i":0,"verdict":"利好|利淡|中性","reason":"20字內"}]}`;}
+async function askJSON(el,prompt,render,useSearch){ try{ render(await claudeJSON(prompt,useSearch)); }
+  catch(e){ el.innerHTML='<div class="err">'+esc(e&&e.code==='nokey'?'呢個功能要 Anthropic API key，喺底部「設定」貼。':'生成失敗：'+(e&&e.message||''))+'</div>'; } }
+function showCouncil(el,res){const ch=res.chairman||{},cr=res.critique||{};
+  el.innerHTML=`<div class="sum">${esc(res.summary)}</div>`+(res.advisors||[]).map(m=>`<div class="m"><b>${esc(m.lamp)} ${esc(m.name)}</b><ul>${(m.points||[]).map(p=>'<li>'+esc(p)+'</li>').join('')}</ul></div>`).join('')+
+  `<div class="m"><b>交叉批評</b>最強：${esc(cr.strongest)}<br>最弱：${esc(cr.weakest)}<br>未解決：${esc((cr.clash||[]).join(' ⟷ '))}</div><div class="chair ${lampCls(ch.lamp)}"><b>主席 ${esc(ch.lamp)}</b><div>一小時內：${esc(ch.decision)}</div><div>主要風險：${esc(ch.risk)}</div><div>聽朝做：${esc(ch.action)}</div><div>被否決：${esc(ch.overruled)}</div></div>`;}
+function showSummary(el,s){ el.innerHTML=`<div class="sum">${esc(s.verdict||'')} ${esc(s.headline)}</div><div class="plan"><h4>點解值得留意</h4><ul>${(s.why||[]).map(x=>'<li>'+esc(x)+'</li>').join('')}</ul><h4>主要風險</h4><ul>${(s.risks||[]).map(x=>'<li>'+esc(x)+'</li>').join('')}</ul><h4>短線</h4>${esc(s.short)}<h4>中線</h4>${esc(s.mid)}<h4>長線</h4>${esc(s.long)}<h4>執行計劃</h4>${esc(s.plan)}</div>`; }
+function evidencePrompt(r){ return `${RULES}\n先用 web_search 搵 ${r.name}（${r.code}，${market==='HK'?'港股':'美股'}）最近兩星期嘅新聞（最多 3 次搜尋），然後為新手寫一頁「有論據支持」嘅總結。每一個論據都必須引用來源：技術論據引用下面嘅具體數字；新聞論據要俾新聞標題同網址。冇來源嘅論據唔准寫。同時要寫反方論據。搵唔到新聞就老實話冇。\n\n技術數據：\n${facts(r)}\n\n最後只回覆 JSON，冇 fence：{"headline":"一句（25字內）","verdict":"🟢|🟡|🔴","evidence":[{"claim":"25字內","source":"技術|新聞","title":"新聞標題或null","url":"網址或null"}],"counter":[{"claim":"","source":"技術|新聞","title":null,"url":null}],"risks":["最多3點"],"short":"","mid":"","long":"只可以用 200 日線同趨勢講","plan":"用買入區、止蝕、T1、T2，60字內","newsLamp":"🟢|🟡|🔴|⚪"}`; }
+function showEvidence(el,sm){ const src=e=>e.source==='新聞'&&e.url?` <a href="${esc(e.url)}" target="_blank" rel="noopener">${esc((e.title||'來源').slice(0,40))}</a>`:' <span class="small">技術數據</span>';
+  el.innerHTML=`<div class="sum">${esc(sm.verdict||'')} ${esc(sm.headline)}</div><div class="plan"><h4>✅ 支持論據</h4><ul>${(sm.evidence||[]).map(e=>'<li>'+esc(e.claim)+src(e)+'</li>').join('')||'<li>冇</li>'}</ul><h4>❌ 反方論據</h4><ul>${(sm.counter||[]).map(e=>'<li>'+esc(e.claim)+src(e)+'</li>').join('')||'<li>冇</li>'}</ul><h4>主要風險</h4><ul>${(sm.risks||[]).map(x=>'<li>'+esc(x)+'</li>').join('')}</ul><h4>短線</h4>${esc(sm.short)}<h4>中線</h4>${esc(sm.mid)}<h4>長線</h4>${esc(sm.long)}<h4>執行計劃</h4>${esc(sm.plan)}<div class="small" style="margin-top:8px">新聞 ${sm.newsLamp||'⚪'} · 所有價位嚟自規則引擎，Claude 只負責解釋。</div></div>`; }
+async function genSummary(r,el){ el.style.display='block'; el.innerHTML='<div class="muted">搵緊新聞同寫緊論據…（30–60 秒）</div>'; await askJSON(el,evidencePrompt(r),sm=>showEvidence(el,sm),true); }
+function newsPromptS(r){ return `${RULES}\n用 web_search 搵 ${r.name}（${r.code}）最近兩星期嘅新聞（最多 3 次搜尋）。逐條判斷對股價利好、利淡定中性，一句理由，附標題同網址。唔好作新聞。只回覆 JSON，冇 fence：{"overall":"30字內","overallLamp":"🟢|🟡|🔴","items":[{"title":"","url":"","date":"","verdict":"利好|利淡|中性","reason":"20字內"}]}`; }
+async function newsFor(r,el){ el.innerHTML='<div class="muted">搵緊新聞…（20–40 秒）</div>'; await askJSON(el,newsPromptS(r),res=>{ const items=res.items||[]; el.innerHTML=`<div class="sum">${esc(res.overallLamp||'')} ${esc(res.overall)}</div>`+(items.length?items.map(n=>{const cls=n.verdict==='利好'?'good':n.verdict==='利淡'?'bad':'';return `<div class="news"><span class="v ${cls}">${esc(n.verdict||'—')}</span> ${esc(n.title)}<br><span class="muted">${esc(n.reason||'')}</span> ${n.url?`<a href="${esc(n.url)}" target="_blank" rel="noopener">來源</a>`:''} <span class="small">${esc(n.date||'')}</span></div>`}).join(''):'<div class="muted">搵唔到相關新聞。</div>'); },true); }
+document.addEventListener('click',async ev=>{
+  const b=ev.target.closest('button'); if(!b) return; const rows=state[market].rows;
+  if(b.dataset.council!=null){ const i=+b.dataset.council,r=rows[i],el=$('c'+i); if(el.style.display==='block'){el.style.display='none';return} el.style.display='block'; el.innerHTML='<div class="muted">開緊會…（10–40 秒）</div>'; askJSON(el,councilPrompt(r),res=>showCouncil(el,res)); }
+  if(b.dataset.sum!=null){ view='summary'; setView(); window.scrollTo({top:$('v-summary').offsetTop-10,behavior:'smooth'}); }
+  if(b.dataset.gen!=null){ const i=+b.dataset.gen,r=rows[i],el=$('s'+i); genSummary(r,el); }
+  if(b.dataset.news!=null){ const i=+b.dataset.news,r=rows[i],el=$('n'+i); if(el.style.display==='block'&&el.innerHTML){el.style.display='none';return} el.style.display='block'; newsFor(r,el); }
+  if(b.dataset.save!=null){ const r=rows[+b.dataset.save],a=r.a,log=LS.get('pt_log',[]);
+    log.unshift({id:Date.now(),m:market,code:r.code,name:r.name,entry:a.entry,target:a.target,stop:a.stop,rr:a.rr,riskP:a.riskP,rewP:a.rewP,lamp:a.lamp,date:a.date,status:'open'});
+    LS.set('pt_log',log); renderLog(); const orig=b.textContent; b.textContent='已記低'; setTimeout(()=>b.textContent=orig,1200); }
+});
+
+/* ---------- paper trades ---------- */
+function autoCheck(m){ const log=LS.get('pt_log',[]); let n=0;
+  for(const e of log){ if(e.status!=='open'||(e.m||'HK')!==m) continue; const r=state[m].rows.find(x=>x.code===e.code); if(!r) continue;
+    for(const b of r.bars.filter(b=>b.d>e.date)){ if(b.l<=e.stop){e.status='stop';e.auto=true;e.closed=b.d;n++;break} if(b.h>=e.target){e.status='target';e.auto=true;e.closed=b.d;n++;break} } }
+  if(n) LS.set('pt_log',log); return n; }
+function renderLog(){ const log=LS.get('pt_log',[]), win=log.filter(e=>e.status==='target').length, lose=log.filter(e=>e.status==='stop').length, cl=win+lose;
+  const exp=cl?log.filter(e=>e.status!=='open').reduce((s,e)=>s+(e.status==='target'?e.rewP:-e.riskP),0)/cl:null;
+  $('stat4').innerHTML=[['單數',log.length],['到目標',win],['中止蝕',lose],['平均每單',exp==null?'—':pct(exp)]].map(([k,v])=>`<div class="s4"><div class="v">${v}</div><div class="k">${k}</div></div>`).join('');
+  if(!log.length){$('log').innerHTML='<div class="panel muted" style="margin:0">仲未有紀錄。喺卡上撳「記低 paper trade」。之後每次更新會自動用日線高低價判定到目標／中止蝕。</div>';return}
+  const days=d=>Math.max(0,Math.round((Date.now()-new Date(d))/864e5));
+  $('log').innerHTML=log.map(e=>`<div class="en ${e.status}"><div class="t"><span>${e.m==='US'?'🇺🇸':'🇭🇰'} ${esc(e.code)} ${esc(e.name)} ${e.lamp}</span><small>${esc(e.date)}${e.closed?' → '+esc(e.closed):e.status==='open'?' · '+days(e.date)+' 日':''}</small></div>
+   <div class="muted">$${e.entry.toFixed(2)} → 🎯 $${e.target.toFixed(2)} (+${e.rewP.toFixed(1)}%)　🛑 $${e.stop.toFixed(2)} (−${e.riskP.toFixed(1)}%)　R:R ${e.rr.toFixed(1)}:1${e.auto?'<span class="tag">自動判定</span>':''}</div>
+   <div class="r" data-id="${e.id}"><button class="chip ${e.status==='open'?'sel':''}" data-s="open">未完</button><button class="chip ${e.status==='target'?'sel':''}" data-s="target">到目標</button><button class="chip ${e.status==='stop'?'sel':''}" data-s="stop">中止蝕</button><button class="chip" data-s="del">刪</button></div></div>`).join(''); }
+$('log').addEventListener('click',ev=>{const b=ev.target.closest('button[data-s]');if(!b)return;const id=+b.parentElement.dataset.id;let log=LS.get('pt_log',[]);
+  if(b.dataset.s==='del'){if(!confirm('刪除？'))return;log=log.filter(e=>e.id!==id)}else log=log.map(e=>e.id===id?{...e,status:b.dataset.s,auto:false}:e);LS.set('pt_log',log);renderLog()});
+
+/* ---------- predictions: auto-log every signal, resolve with real prices ---------- */
+const PK='predictions';
+function logPredictions(m){ const preds=LS.get(PK,[]); const seen=new Set(preds.map(p=>p.m+'|'+p.code+'|'+p.date+'|'+p.kind)); let added=0;
+  const rows=state[m].rows, b=rows.length?rows.filter(r=>r.a.aboveS20).length/rows.length:0, mk=b>=.6?'🟢':b<=.4?'🔴':'🟡';
+  for(const r of rows){ const a=r.a; let kind=null; if(a.lamp==='🟢') kind='buy'; else if(a.word==='等回調') kind='wait'; if(!kind) continue;
+    const key=m+'|'+r.code+'|'+a.date+'|'+kind; if(seen.has(key)) continue;
+    preds.unshift({id:Date.now()+Math.random(),m,code:r.code,name:r.name,kind,date:a.date,entry:a.entry,stop:a.stop,target:a.target,zone:a.zone,riskP:a.riskP,rewP:a.rewP,rr:a.rr,setup:a.setup,volR:a.volR,atrP:a.atrP,mk,params:{stopATR:P.stopATR,rrMin:P.rrMin,volRMin:P.volRMin},status:'open'}); added++; }
+  if(added) LS.set(PK,preds.slice(0,1500)); }
+function resolvePredictions(m){ const preds=LS.get(PK,[]); let ch=0;
+  for(const p of preds){ if(p.status!=='open'||p.m!==m) continue; const r=state[m].rows.find(x=>x.code===p.code); if(!r) continue;
+    const after=r.bars.filter(b=>b.d>p.date); if(!after.length) continue;
+    if(p.kind==='buy'){ let mae=0, i=0;
+      for(const b of after){ i++; mae=Math.min(mae,(b.l-p.entry)/p.entry*100);
+        if(b.l<=p.stop){ p.status='stop'; p.ret=-p.riskP; p.closed=b.d; p.days=i; break; }
+        if(b.h>=p.target){ p.status='target'; p.ret=p.rewP; p.closed=b.d; p.days=i; break; }
+        if(i>=P.expiryDays){ p.status='expired'; p.ret=(b.c-p.entry)/p.entry*100; p.closed=b.d; p.days=i; break; } }
+      p.mae=mae; if(p.status!=='open') ch++; }
+    else { let i=0; for(const b of after){ i++; if(p.zone&&b.l<=p.zone[1]){ p.status='correct'; p.closed=b.d; p.days=i; ch++; break; } if(i>=10){ p.status='wrong'; p.closed=b.d; p.days=i; p.ret=(b.c-p.entry)/p.entry*100; ch++; break; } } } }
+  if(ch) LS.set(PK,preds); return ch; }
+function stats(list){ const done=list.filter(p=>p.status!=='open'), win=done.filter(p=>p.status==='target').length, lose=done.filter(p=>p.status==='stop').length, exp=done.filter(p=>p.status==='expired');
+  const avg=done.length?done.reduce((s,p)=>s+(p.ret||0),0)/done.length:null; return {n:list.length,done:done.length,win,lose,expired:exp.length,winRate:done.length?win/done.length*100:null,avg}; }
+function groupBy(list,f){ const g={}; for(const p of list){ const k=f(p); (g[k]=g[k]||[]).push(p); } return g; }
+function renderReview(){ const preds=LS.get(PK,[]), buys=preds.filter(p=>p.kind==='buy'), waits=preds.filter(p=>p.kind==='wait');
+  const last=LS.get('lastReview',null), days=last?Math.floor((Date.now()-new Date(last))/864e5):null;
+  const bn=$('rvBanner'); if(!last){ bn.textContent='第一次檢討：等有 15 單以上有結果先有意義。而家先累積緊。'; bn.className='banner show'; } else if(days>=10){ bn.textContent=`距離上次檢討已經 ${days} 日，係時候撳「開始檢討」。`; bn.className='banner show'; } else bn.className='banner';
+  const S=stats(buys), W=stats(waits), row=(k,st)=>`<tr><td>${esc(k)}</td><td>${st.n}</td><td>${st.done}</td><td>${st.winRate==null?'—':st.winRate.toFixed(0)+'%'}</td><td>${st.avg==null?'—':pct(st.avg)}</td></tr>`;
+  let html=`<b>🟢 買入訊號</b><table class="rv"><tr><th>分組</th><th>訊號</th><th>有結果</th><th>勝率</th><th>平均</th></tr>${row('全部',S)}`;
+  for(const [k,v] of Object.entries(groupBy(buys,p=>p.setup==='breakout'?'突破':'回調'))) html+=row(k,stats(v));
+  for(const [k,v] of Object.entries(groupBy(buys,p=>'大市 '+p.mk))) html+=row(k,stats(v));
+  for(const [k,v] of Object.entries(groupBy(buys,p=>p.m==='HK'?'港股':'美股'))) html+=row(k,stats(v));
+  html+=`</table><div class="small" style="margin-top:6px">勝率 = 到目標 ÷ 有結果；「平均」計埋到期未到目標／止蝕嘅實際回報。</div>`;
+  html+=`<b style="display:block;margin-top:12px">🟡 等回調訊號</b><div class="muted">預測「會回落到買入區」：${W.n} 個，判定 ${W.done} 個，命中 ${waits.filter(p=>p.status==='correct').length} 個${W.done?'（'+(waits.filter(p=>p.status==='correct').length/W.done*100).toFixed(0)+'%）':''}。</div>`;
+  $('rvStats').innerHTML=html;
+  const miss=buys.filter(p=>p.status==='stop'||(p.status==='expired'&&p.ret<0)).slice(0,8);
+  $('rvMiss').innerHTML=miss.length?miss.map(p=>`<div class="miss"><b>${esc(p.code)} ${esc(p.name)}</b> ${p.date} ${p.setup==='breakout'?'突破':'回調'} · 大市 ${p.mk}<br>入 $${p.entry.toFixed(2)} → ${p.status==='stop'?'第 '+p.days+' 日中止蝕 $'+p.stop.toFixed(2):'到期 '+pct(p.ret)}；最深跌 ${pct(p.mae||0)}；當時 R:R ${p.rr.toFixed(1)}，成交 ${p.volR.toFixed(1)}×，ATR ${p.atrP.toFixed(1)}%</div>`).join(''):'<div class="muted">暫時冇做錯嘅 🟢，或者未有結果。</div>';
+  $('rvParams').innerHTML=Object.keys(DEFP).map(k=>`${PDESC[k][0]}：<b>${P[k]===true?'開':P[k]===false?'關':P[k]}</b>${P[k]!==DEFP[k]?' <span class="tag">已改，預設 '+(DEFP[k]===false?'關':DEFP[k])+'</span>':''}`).join('<br>');
+  const hist=LS.get('reviews',[]); $('rvHist').innerHTML=hist.length?hist.map(h=>`<div class="miss">${h.date}：${h.n} 單有結果，勝率 ${h.winRate==null?'—':h.winRate.toFixed(0)+'%'}。${h.changes.length?'改咗：'+h.changes.map(c=>PDESC[c.param][0]+' '+c.from+'→'+c.to).join('；'):'冇改參數。'}</div>`).join(''):'未做過檢討。'; }
+function reviewPrompt(){ const preds=LS.get(PK,[]), buys=preds.filter(p=>p.kind==='buy'), S=stats(buys);
+  const grp=f=>Object.entries(groupBy(buys,f)).map(([k,v])=>{const t=stats(v);return `${k}: ${t.done} 單，勝率 ${t.winRate==null?'—':t.winRate.toFixed(0)+'%'}，平均 ${t.avg==null?'—':pct(t.avg)}`}).join('；');
+  const miss=buys.filter(p=>p.status==='stop'||(p.status==='expired'&&p.ret<0)).slice(0,12).map(p=>`${p.code} ${p.date} ${p.setup} 大市${p.mk} R:R${p.rr.toFixed(1)} 成交${p.volR.toFixed(1)}x ATR${p.atrP.toFixed(1)}% → ${p.status} 第${p.days}日 最深跌${(p.mae||0).toFixed(1)}%`).join('\n');
+  const wins=buys.filter(p=>p.status==='target').slice(0,8).map(p=>`${p.code} ${p.date} ${p.setup} 大市${p.mk} R:R${p.rr.toFixed(1)} → 第${p.days}日到目標`).join('\n');
+  return `${RULES}\n你係一個交易系統嘅檢討員。以下係規則引擎過去嘅訊號成績（真實價格判定）。任務：診斷邊類訊號做得差、點解，然後提議改參數。只可以提議以下參數，而且要喺範圍內：\n${Object.keys(DEFP).map(k=>`${k}（${PDESC[k][0]}）而家 ${P[k]}，範圍 ${PDESC[k][1]}–${PDESC[k][2]}`).join('\n')}\n\n總體：${S.done} 單有結果（共 ${S.n} 個訊號），到目標 ${S.win}，中止蝕 ${S.lose}，到期 ${S.expired}，勝率 ${S.winRate==null?'—':S.winRate.toFixed(0)+'%'}，平均 ${S.avg==null?'—':pct(S.avg)}\n分組（setup）：${grp(p=>p.setup)}\n分組（大市）：${grp(p=>'大市'+p.mk)}\n分組（R:R）：${grp(p=>p.rr<2?'R:R<2':p.rr<3?'R:R 2-3':'R:R≥3')}\n分組（ATR）：${grp(p=>p.atrP<2?'ATR<2%':p.atrP<4?'ATR 2-4%':'ATR≥4%')}\n\n做錯嘅：\n${miss||'（冇）'}\n\n做啱嘅：\n${wins||'（冇）'}\n\n規矩：有結果嘅單少過 15，只可以話「數據不足」，proposals 留空。每個 proposal 要引用上面嘅數字做理由。每次最多改 2 個參數，每個參數改幅唔好超過範圍嘅三分一。唔好為咗遷就幾單而大改（overfitting）。\n只回覆 JSON，冇 fence：{"diagnosis":["最多4點，每點30字內"],"proposals":[{"param":"stopATR","from":2.5,"to":3,"reason":"30字內"}],"keep":"一句講邊樣做得好唔好改","confidence":"低|中|高"}`; }
+async function runReview(){ const out=$('rvOut'); const preds=LS.get(PK,[]), S=stats(preds.filter(p=>p.kind==='buy'));
+  if(S.done<5){ out.innerHTML=`<div class="muted" style="margin-top:8px">而家只有 ${S.done} 單有結果，檢討冇意義。等多幾日再嚟。</div>`; return; }
+  out.innerHTML='<div class="muted" style="margin-top:8px">Claude 睇緊成績表…（15–40 秒）</div>';
+  await askJSON(out,reviewPrompt(),res=>{ window._props=res.proposals||[];
+    out.innerHTML=`<div class="sum" style="margin-top:10px">診斷（信心：${esc(res.confidence||'—')}）</div><ul class="plan">${(res.diagnosis||[]).map(d=>'<li>'+esc(d)+'</li>').join('')}</ul><div class="muted">${esc(res.keep||'')}</div>`+
+      ((res.proposals||[]).length?(res.proposals||[]).map((p,i)=>{const d=PDESC[p.param];if(!d)return '';return `<div class="prop"><b>${esc(d[0])}：${esc(String(p.from))} → ${esc(String(p.to))}</b>${esc(p.reason)}<div class="row"><button class="btn sm" data-adopt="${i}">採納</button><button class="btn sec sm" data-skip="${i}">唔改</button></div></div>`}).join(''):'<div class="muted" style="margin-top:8px">今次冇提議改參數。</div>')+
+      `<div class="row" style="margin-top:10px"><button class="btn sec sm" id="rvDone">完成今次檢討</button></div>`;
+    window._adopted=[]; }); }
+function clamp(k,v){ const d=PDESC[k]; if(typeof DEFP[k]==='boolean') return !!v; return Math.min(d[2],Math.max(d[1],+v)); }
+document.addEventListener('click',ev=>{ const b=ev.target.closest('button'); if(!b) return;
+  if(b.dataset.adopt!=null){ const p=(window._props||[])[+b.dataset.adopt]; if(!p||!PDESC[p.param]) return; const to=clamp(p.param,p.to); (window._adopted=window._adopted||[]).push({param:p.param,from:P[p.param],to}); P[p.param]=to; LS.set('params',P); b.closest('.prop').innerHTML=`<b>✅ 已採納：${esc(PDESC[p.param][0])} → ${esc(String(to))}</b>`; renderReview(); }
+  if(b.dataset.skip!=null){ b.closest('.prop').innerHTML='<span class="muted">✕ 唔改</span>'; }
+  if(b.id==='rvDone'){ const preds=LS.get(PK,[]), S=stats(preds.filter(p=>p.kind==='buy')); const hist=LS.get('reviews',[]); hist.unshift({date:new Date().toISOString().slice(0,10),n:S.done,winRate:S.winRate,changes:window._adopted||[]}); LS.set('reviews',hist.slice(0,30)); LS.set('lastReview',new Date().toISOString()); $('rvOut').innerHTML='<div class="ok">已記低今次檢討。'+((window._adopted||[]).length?'新參數會喺下次掃描生效。':'')+'</div>'; renderReview(); if((window._adopted||[]).length) scan(market); }
+  if(b.id==='rvReset'){ if(!confirm('還原所有參數做預設？')) return; P=Object.assign({},DEFP); LS.set('params',P); renderReview(); scan(market); }
+  if(b.id==='rvRun') runReview(); });
+
+/* ---------- day trading view (5m bars from intraday.json) ---------- */
+let dayBusy=false;
+function analyseDay(rec,daily){
+  const tb=(rec.bars||[]).map(b=>({t:b[0],o:b[1],h:b[2],l:b[3],c:b[4],v:b[5]})); if(tb.length<2) return null;
+  let pv=0,vv=0; for(const b of tb){ pv+=(b.h+b.l+b.c)/3*b.v; vv+=b.v; } const vwap=vv?pv/vv:tb[tb.length-1].c;
+  const open=tb[0].o, last=tb[tb.length-1], hi=Math.max(...tb.map(b=>b.h)), lo=Math.min(...tb.map(b=>b.l));
+  const orb=tb.slice(0,6), orbH=Math.max(...orb.map(b=>b.h)), orbL=Math.min(...orb.map(b=>b.l));
+  const chgO=(last.c-open)/open*100, volR=rec.pbv?(vv/tb.length)/rec.pbv:1, aboveV=last.c>vwap;
+  const prevClose=daily&&daily.a&&daily.a.date<rec.d?daily.a.entry:open, chg=(last.c-prevClose)/prevClose*100;
+  const dayATR=daily?daily.a.atrP/100*last.c:(hi-lo);
+  let lamp='🟡',word='觀望',why=[];
+  if(aboveV&&last.c>orbH&&volR>1.2){lamp='🟢';word='突破開市區間';why.push(`企喺 VWAP 之上，突破頭 30 分鐘高位 ${orbH.toFixed(2)}，成交係平時 ${volR.toFixed(1)} 倍。`)}
+  else if(aboveV&&Math.abs(last.c-vwap)/vwap<0.004&&chgO>0){lamp='🟢';word='回試 VWAP';why.push('日內向上，回到 VWAP 附近企穩。')}
+  else if(!aboveV){lamp='🔴';word='VWAP 之下';why.push('喺 VWAP 之下，日內偏弱，唔好做好倉。')}
+  else why.push('VWAP 之上但未有突破，等。');
+  if(tb.length<6){lamp='🟡';word='開市未夠 30 分鐘';why=['頭 30 分鐘波動大，等開市區間形成。']}
+  const entry=last.c, stop=Math.max(Math.min(vwap,orbL)*0.998, entry-0.6*dayATR), target=Math.max(entry+2*(orbH-orbL), entry+1.0*dayATR);
+  const riskP=(entry-stop)/entry*100, rewP=(target-entry)/entry*100, rr=riskP>0?rewP/riskP:0;
+  if(lamp==='🟢'&&rr<1.5){lamp='🟡';word='R:R 唔夠';why.push(`R:R ${rr.toFixed(1)}，唔夠 1.5。`)}
+  return {lamp,word,why:why.join(' '),entry,stop,target,rr,riskP,rewP,vwap,open,hi,lo,orbH,orbL,chgO,chg,volR,at:last.t,nbars:tb.length,d:rec.d};
+}
+async function dayScan(){
+  if(dayBusy) return; dayBusy=true; const m=market, cfg=CFG[m], st=state[m]; $('dayStatus').textContent='載入緊 5 分鐘 K 線…';
+  try{ const intra=await getJSON('intraday.json'); const recs=intra[m]||{}; const out=[];
+    for(const [code,rec] of Object.entries(recs)){ const daily=st.rows.find(r=>r.code===code); const a=analyseDay(rec,daily); if(a) out.push({code,name:(daily&&daily.name)||cfg.names[code]||'',a}); }
+    const order={'🟢':0,'🟡':1,'🔴':2}; out.sort((x,y)=>order[x.a.lamp]-order[y.a.lamp]||y.a.rr-x.a.rr); const cur=cfg.cur;
+    $('daycards').innerHTML=out.length?out.map(r=>{const a=r.a;return `<div class="card ${lampCls(a.lamp)}">
+      <div class="row"><div class="stock">${esc(r.code)} ${esc(r.name)}<small>${esc(a.d)} · 數據 ${esc(fmtTime(a.at))} · 第 ${a.nbars} 支 5 分鐘 K</small></div><div class="lamp"><div class="e">${a.lamp}</div><div class="w">${esc(a.word)}</div></div></div>
+      <div class="price">${cur}${a.entry.toFixed(2)} <span class="chg ${a.chg>=0?'up':'dn'}">${pct(a.chg)}</span> <span class="small">對開市 ${pct(a.chgO)}</span></div>
+      <div class="tf"><span>VWAP ${cur}${a.vwap.toFixed(2)} ${a.entry>a.vwap?'↑':'↓'}</span><span>開市區間 ${cur}${a.orbL.toFixed(2)}–${a.orbH.toFixed(2)}</span><span>今日 ${cur}${a.lo.toFixed(2)}–${a.hi.toFixed(2)}</span><span>成交 ${a.volR.toFixed(1)}×</span></div>
+      <div class="stats"><div class="st">🎯 即日目標<b class="go">${cur}${a.target.toFixed(2)}</b>${pct(a.rewP)}</div><div class="st">🛑 即日止蝕<b class="stop">${cur}${a.stop.toFixed(2)}</b>−${a.riskP.toFixed(1)}%</div><div class="st">R:R<b>${a.rr.toFixed(1)} : 1</b></div></div>
+      <div class="why"><b>點解？</b> ${esc(a.why)}<br><span class="muted">即日規則：收市前一定平倉；跌返落 VWAP 之下即走。</span></div></div>`}).join(''):'<div class="panel muted">而家冇即日數據（未開市，或者 GitHub 未跑過 quotes）。</div>';
+    $('dayStatus').innerHTML=`<div class="ok">${out.length} 隻 · 數據時間 ${intra.at?fmtTime(intra.at):'—'} · 開住每 3 分鐘讀一次</div>`;
+  }catch(e){ $('dayStatus').innerHTML='<div class="err">'+esc(errMsg(e))+'</div>'; }
+  dayBusy=false;
+}
+setInterval(()=>{ if(view==='day'&&!document.hidden) dayScan(); },3*60*1000);
+
+/* ---------- price alerts ---------- */
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.className='toast show'; setTimeout(()=>t.className='toast',6000); try{ navigator.vibrate&&navigator.vibrate([200,100,200]); }catch(e){} }
+function notify(title,body){ toast(title+' '+body); try{ if('Notification' in window&&Notification.permission==='granted') new Notification(title,{body}); }catch(e){} }
+function askPerm(){ try{ if('Notification' in window&&Notification.permission==='default') Notification.requestPermission().then(renderAlerts); }catch(e){} }
+function addAlert(m,code,dir,price,note){ const list=LS.get('alerts',[]); list.unshift({id:Date.now()+Math.random(),m,code,name:CFG[m].names[code]||'',dir,price,note:note||'',hit:false,created:new Date().toISOString().slice(0,10)}); LS.set('alerts',list); askPerm(); renderAlerts(); }
+function checkAlerts(m){ const list=LS.get('alerts',[]); let n=0;
+  for(const a of list){ if(a.hit||a.m!==m) continue; const lp=livePrice(m,a.code); if(!lp) continue;
+    if((a.dir==='up'&&lp.p>=a.price)||(a.dir==='down'&&lp.p<=a.price)){ a.hit=true; a.hitAt=new Date().toISOString(); a.hitPrice=lp.p; n++; notify(`🔔 ${a.code} ${a.name} ${a.dir==='up'?'升到':'跌到'} ${CFG[m].cur}${a.price}`,`現價 ${CFG[m].cur}${lp.p.toFixed(2)}${a.note?' · '+a.note:''}`); } }
+  if(n) LS.set('alerts',list); renderAlerts(); return n; }
+function renderAlerts(){ const list=LS.get('alerts',[]); const perm=('Notification' in window)?Notification.permission:'unsupported';
+  $('aPerm').innerHTML=perm==='granted'?'<span class="small">✅ 通知已允許。開住 app 就會彈。</span>':perm==='denied'?'<div class="err">通知被封鎖，只會喺 app 入面彈提示。</div>':perm==='unsupported'?'<span class="small">呢個模式唔支援系統通知，只會喺 app 入面彈提示。</span>':'<button class="btn sec sm" id="aPermBtn">允許通知</button>';
+  $('aLog').innerHTML=list.length?list.map(a=>{const lp=livePrice(a.m,a.code);return `<div class="en ${a.hit?'hit':'open'}"><div class="t"><span>${a.m==='US'?'🇺🇸':'🇭🇰'} ${esc(a.code)} ${esc(a.name)} ${a.dir==='up'?'升到':'跌到'} ${CFG[a.m].cur}${a.price}</span><small>${a.hit?'✅ 到價 '+esc((a.hitAt||'').slice(5,16).replace('T',' ')):'現價 '+(lp?CFG[a.m].cur+lp.p.toFixed(2):'—')}</small></div>${a.note?'<div class="muted">'+esc(a.note)+'</div>':''}<div class="r" data-aid="${a.id}"><button class="chip" data-adel="1">刪</button></div></div>`}).join(''):'<div class="muted">未有提醒。</div>'; }
+$('aExport').onclick=async()=>{ const list=LS.get('alerts',[]).filter(a=>!a.hit).map(a=>({m:a.m,code:a.code,name:a.name,dir:a.dir,price:a.price,note:a.note})); const txt=JSON.stringify(list,null,1); try{ await navigator.clipboard.writeText(txt); toast('已 copy '+list.length+' 個提醒，貼落 GitHub 嘅 alerts.json'); }catch(e){ prompt('Copy 呢段貼落 alerts.json：',txt); } };
+$('aAdd').onclick=()=>{ const code=CFG[market].norm($('aCode').value.trim()), price=+$('aPrice').value; if(!code||!(price>0)){ alert('要填代號同價格。'); return; } addAlert(market,code,$('aDir').value,price); $('aCode').value=$('aPrice').value=''; if(!watchOf(market).includes(code)){ const w=watchOf(market); w.push(code); LS.set('watch_'+market,w); renderWl(); } };
+document.addEventListener('click',ev=>{ const b=ev.target.closest('button'); if(!b) return;
+  if(b.id==='aPermBtn') askPerm();
+  if(b.dataset.adel){ const id=+(b.closest('[data-aid]').dataset.aid); LS.set('alerts',LS.get('alerts',[]).filter(a=>a.id!==id)); renderAlerts(); } });
+
+/* ---------- real trades ---------- */
+const RK='real_trades';
+function livePrice(m,code){ const q=(quotes[m]||{})[code]; if(q) return {p:q.p,at:quotes.at}; const r=state[m].rows.find(x=>x.code===code); return r?{p:r.a.entry,at:null,a:r.a}:null; }
+function renderReal(){ const list=LS.get(RK,[]); const cur=CFG[market].cur;
+  let realized=0, unreal=0, wins=0, losses=0, open=0;
+  const html=list.map(e=>{ const m=e.m||'HK', sym=CFG[m].cur, lp=livePrice(m,e.code), cost=e.buy*e.qty+(e.fee||0);
+    if(e.sell!=null){ const pl=(e.sell*e.qty-(e.sellFee||0))-cost, plP=pl/cost*100; realized+=pl; if(pl>=0) wins++; else losses++;
+      return `<div class="en ${pl>=0?'win':'loss'}"><div class="t"><span>${m==='US'?'🇺🇸':'🇭🇰'} ${esc(e.code)} ${esc(e.name||'')}</span><small>${esc(e.date)} → ${esc(e.sellDate||'')}</small></div>
+        <div class="muted">買 ${sym}${e.buy} × ${e.qty}　賣 ${sym}${e.sell}${e.fee||e.sellFee?'　手續費 '+sym+((e.fee||0)+(e.sellFee||0)).toFixed(2):''}</div>
+        <div class="pl ${pl>=0?'up':'dn'}">${pl>=0?'賺':'蝕'} ${sym}${Math.abs(pl).toFixed(2)}（${pct(plP)}）</div>
+        ${e.stop?`<div class="small">App 當時：止蝕 ${sym}${e.stop.toFixed(2)}，目標 ${sym}${e.target.toFixed(2)}${e.sell<=e.stop?' · 賣喺止蝕以下':e.sell>=e.target?' · 到咗目標':''}</div>`:''}
+        <div class="r" data-rid="${e.id}"><button class="chip" data-rdel="1">刪</button></div></div>`; }
+    open++; const p=lp?lp.p:null, pl=p!=null?(p*e.qty-cost):null, plP=pl!=null?pl/cost*100:null; if(pl!=null) unreal+=pl;
+    let vs=''; if(e.stop&&p!=null){ vs=p<=e.stop?'<b style="color:var(--stop)">已跌穿 app 止蝕 '+sym+e.stop.toFixed(2)+'，規則係走。</b>':p>=e.target?'<b style="color:var(--go)">已到 app 目標 '+sym+e.target.toFixed(2)+'，可以分段走。</b>':'離止蝕 '+((p-e.stop)/p*100).toFixed(1)+'%，離目標 '+((e.target-p)/p*100).toFixed(1)+'%'; }
+    return `<div class="en real"><div class="t"><span>${m==='US'?'🇺🇸':'🇭🇰'} ${esc(e.code)} ${esc(e.name||'')}</span><small>${esc(e.date)} 買入</small></div>
+      <div class="muted">買 ${sym}${e.buy} × ${e.qty} = ${sym}${cost.toFixed(2)}　現價 ${p!=null?sym+p.toFixed(2):'—（唔喺 watchlist）'}${e.ideal?'　理想賣出 '+sym+e.ideal:''}</div>
+      ${pl!=null?`<div class="pl ${pl>=0?'up':'dn'}">${pl>=0?'賺緊':'蝕緊'} ${sym}${Math.abs(pl).toFixed(2)}（${pct(plP)}）</div>`:''}
+      ${vs?`<div class="small">${vs}</div>`:''}
+      <div class="sell" data-rid="${e.id}"><input type="number" step="0.001" inputmode="decimal" placeholder="賣出價" class="sp"><input type="number" step="0.01" inputmode="decimal" placeholder="手續費" class="sf"><button class="btn sm" data-rsell="1">賣出</button><button class="chip" data-rdel="1">刪</button></div></div>`; }).join('');
+  $('rStat').innerHTML=[['未賣',open],['已賺',wins],['已蝕',losses],['已實現',(realized>=0?'+':'−')+cur+Math.abs(realized).toFixed(0)]].map(([k,v])=>`<div class="s4"><div class="v">${v}</div><div class="k">${k}</div></div>`).join('');
+  $('rLog').innerHTML=html||'<div class="muted">未有真實買賣。買咗就喺上面記低，或者喺卡上撳「我買咗」。</div>'; }
+function addReal(code,buy,qty,date,fee,ideal){ const m=market, r=state[m].rows.find(x=>x.code===code); const list=LS.get(RK,[]);
+  list.unshift({id:Date.now(),m,code,name:r?r.name:(CFG[m].names[code]||''),buy,qty,fee:fee||0,date,stop:r?r.a.stop:null,target:r?r.a.target:null,lamp:r?r.a.lamp:null,ideal:ideal||null}); LS.set(RK,list);
+  if(ideal>0) addAlert(m,code,'up',ideal,'理想賣出價（買入 '+CFG[m].cur+buy+'）'); if(r&&r.a.stop) addAlert(m,code,'down',+r.a.stop.toFixed(3),'App 止蝕位，規則係走'); renderReal(); }
+$('rAdd').onclick=()=>{ const code=CFG[market].norm($('rCode').value.trim()), buy=+$('rPrice').value, qty=+$('rQty').value, date=$('rDate').value||new Date().toISOString().slice(0,10), fee=+$('rFee').value||0;
+  if(!code||!(buy>0)||!(qty>0)){ alert('要填代號、買入價同股數。'); return; } addReal(code,buy,qty,date,fee,+$('rIdeal').value||0); $('rCode').value=$('rPrice').value=$('rQty').value=$('rFee').value=$('rIdeal').value=''; if(!watchOf(market).includes(code)){ const w=watchOf(market); w.push(code); LS.set('watch_'+market,w); renderWl(); } };
+document.addEventListener('click',ev=>{ const b=ev.target.closest('button'); if(!b) return;
+  if(b.dataset.real!=null){ const r=state[market].rows[+b.dataset.real]; view='log'; setView(); $('rCode').value=r.code; $('rPrice').value=r.a.entry.toFixed(2); $('rDate').value=new Date().toISOString().slice(0,10); $('rQty').focus(); window.scrollTo({top:$('v-log').offsetTop-10,behavior:'smooth'}); }
+  if(b.dataset.rsell){ const box=b.closest('.sell'), id=+box.dataset.rid, sp=+box.querySelector('.sp').value, sf=+box.querySelector('.sf').value||0; if(!(sp>0)){ alert('要填賣出價。'); return; }
+    const list=LS.get(RK,[]).map(e=>e.id===id?{...e,sell:sp,sellFee:sf,sellDate:new Date().toISOString().slice(0,10)}:e); LS.set(RK,list); renderReal(); }
+  if(b.dataset.rdel){ const id=+(b.closest('[data-rid]').dataset.rid); if(!confirm('刪除呢單？')) return; LS.set(RK,LS.get(RK,[]).filter(e=>e.id!==id)); renderReal(); } });
+
+/* ---------- tabs / watchlist ---------- */
+function setView(){ document.querySelectorAll('.vtab').forEach(t=>t.classList.toggle('on',t.dataset.v===view)); ['cards','summary','day','log','review'].forEach(v=>$('v-'+v).classList.toggle('on',v===view)); if(view==='day') dayScan(); }
+document.querySelectorAll('.vtab').forEach(t=>t.onclick=()=>{view=t.dataset.v;setView();});
+document.querySelectorAll('.mtab').forEach(t=>t.onclick=async()=>{ market=t.dataset.m; document.querySelectorAll('.mtab').forEach(x=>x.classList.toggle('on',x===t)); if(!state[market].rows.length) loadCache(market); renderAll(); if(!state[market].rows.length||Date.now()-state[market].at>4*3600*1000) await scan(market); else live(); });
+$('tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(!b)return;filter=b.dataset.f;document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t===b));renderCards();});
+function renderWl(){ const w=watchOf(market), names=CFG[market].names; $('wlNote').textContent=CFG[market].note; $('wl').textContent=w.map(c=>c+(names[c]?' '+names[c]:'')).join('、'); }
+$('addBtn').onclick=()=>{ const c=CFG[market].norm($('addCode').value.trim()); if(!c) return; const w=watchOf(market); if(!w.includes(c)) w.push(c); LS.set('watch_'+market,w); $('addCode').value=''; renderWl(); scan(market); };
+$('resetBtn').onclick=()=>{ LS.set('watch_'+market,Object.keys(CFG[market].names)); renderWl(); scan(market); };
+$('refresh').onclick=()=>scan(market);
+
+/* ---------- Finnhub real-time (US only, optional key) ---------- */
+let fhTimer=null, fhBusy=false;
+async function finnhubTick(){ const key=LS.get('fh_key',''); if(!key||market!=='US'||document.hidden||fhBusy) return; fhBusy=true;
+  try{ const st=state.US; const open=LS.get(RK,[]).filter(e=>e.sell==null&&e.m==='US').map(e=>e.code), al=LS.get('alerts',[]).filter(a=>!a.hit&&a.m==='US').map(a=>a.code);
+    const codes=[...new Set([...open,...al,...visibleRows().slice(0,20).map(r=>r.code)])].slice(0,25);
+    const res=await Promise.all(codes.map(c=>fetch('https://finnhub.io/api/v1/quote?symbol='+encodeURIComponent(c)+'&token='+key).then(r=>r.json()).catch(()=>null)));
+    let n=0; quotes.US=quotes.US||{}; codes.forEach((c,i)=>{ const q=res[i]; if(!q||!q.c) return; quotes.US[c]={p:q.c,prev:q.pc,chg:q.dp,h:q.h,l:q.l,d:new Date(q.t*1000).toISOString().slice(0,10)}; n++; });
+    if(n){ quotes.at=new Date().toISOString(); applyQuotes('US'); autoCheck('US'); checkAlerts('US'); liveLog={at:Date.now(),ok:true,msg:'Finnhub 即時 '+n+' 隻'}; renderAll(); }
+  }catch(e){ liveLog={at:Date.now(),ok:false,msg:'Finnhub: '+(e&&e.message||'')}; renderMarket(); }
+  fhBusy=false; }
+function startFinnhub(){ clearInterval(fhTimer); if(LS.get('fh_key','')) { finnhubTick(); fhTimer=setInterval(finnhubTick,10000); } }
+/* ---------- exports / settings ---------- */
+async function copyText(txt,msg){ try{ await navigator.clipboard.writeText(txt); toast(msg); }catch(e){ prompt('Copy：',txt); } }
+$('anKey').value=anKey(); $('anSave').onclick=()=>{ LS.set('an_key',$('anKey').value.trim()); toast('已儲存 key'); };
+$('fhKey').value=LS.get('fh_key',''); $('fhSave').onclick=()=>{ LS.set('fh_key',$('fhKey').value.trim()); toast('已儲存，美股 tab 會每 10 秒更新'); startFinnhub(); };
+$('exTrades').onclick=()=>copyText(JSON.stringify(LS.get('pt_log',[]).filter(e=>e.status==='open').map(e=>({m:e.m,code:e.code,name:e.name,entry:e.entry,target:e.target,stop:e.stop,status:'open'})),null,1),'已 copy，貼落 trades.json');
+$('exReal').onclick=()=>copyText(JSON.stringify(LS.get(RK,[]).filter(e=>e.sell==null).map(e=>({m:e.m,code:e.code,name:e.name,buy:e.buy,qty:e.qty,stop:e.stop,target:e.target})),null,1),'已 copy，貼落 real.json');
+$('exParams').onclick=()=>copyText(JSON.stringify(P,null,1),'已 copy，貼落 params.json（scanner 下次掃描會用）');
+/* ---------- boot ---------- */
+renderAll();
+(async()=>{ await scan(market); liveTimer=setInterval(live,3*60*1000); startFinnhub(); document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ live(); finnhubTick(); } }); })();
+})();
+</script>
+</body></html>

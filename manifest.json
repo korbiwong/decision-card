@@ -1,0 +1,2 @@
+{ "name": "決策卡 · 港股 · 美股", "short_name": "決策卡", "start_url": "./index.html", "display": "standalone", "background_color": "#eef1f6", "theme_color": "#14213d",
+  "icons": [ {"src": "icon-192.png", "sizes": "192x192", "type": "image/png"}, {"src": "icon-512.png", "sizes": "512x512", "type": "image/png"} ] }
