@@ -1,8 +1,8 @@
 name: scan
 on:
   schedule:
-    - cron: "40 9 * * 1-5"    # 17:40 HKT 港股收市後
-    - cron: "30 21 * * 1-5"   # 17:30 ET 美股收市後
+    - cron: "40 9 * * 1-5"
+    - cron: "30 21 * * 1-5"
   workflow_dispatch:
 permissions: { contents: write }
 concurrency: { group: scan-writes, cancel-in-progress: false }
