@@ -99,9 +99,20 @@ def run(m):
         batch = tickers[i:i + 200]
         try: data = yf.download(batch, period="1y", interval="1d", group_by="ticker", auto_adjust=False, threads=True, progress=False)
         except Exception as e: print("batch failed", e); continue
+        # Yahoo 嘅 1 年數據有時會遲幾日，用最近 5 日數據補返最新幾支日線
+        try: fresh = yf.download(batch, period="5d", interval="1d", group_by="ticker", auto_adjust=False, threads=True, progress=False)
+        except Exception as e: print("fresh failed", e); fresh = None
         for t in batch:
             try:
-                df = data[t] if len(batch) > 1 else data; a = analyse(df, m)
+                df = data[t] if len(batch) > 1 else data
+                if fresh is not None:
+                    f5 = fresh[t] if len(batch) > 1 else fresh
+                    def naive(x):
+                        x = x.copy(); x.index = pd.to_datetime(x.index); 
+                        if x.index.tz is not None: x.index = x.index.tz_localize(None)
+                        x.index = x.index.normalize(); return x
+                    df = pd.concat([naive(df), naive(f5.dropna(subset=["Close"]))]); df = df[~df.index.duplicated(keep="last")].sort_index()
+                a = analyse(df, m)
                 if a:
                     code = f"{int(t.split('.')[0]):04d}" if m == "HK" else t
                     a["code"] = code; a["name"] = codes.get(code, ""); results[code] = a
