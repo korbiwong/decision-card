@@ -232,7 +232,7 @@ async function scan(m){
   }catch(e){ if(m===market) $('status').innerHTML='<div class="err">'+esc(errMsg(e))+'。如果係第一次，要先喺 GitHub Actions 跑一次「scan」。</div>'; }
   bar.style.width='100%'; busy=false; $('refresh').disabled=false; setTimeout(()=>bar.style.width='0',800);
 }
-function applyQuotes(m){ const qm=quotes[m]||{}; for(const r of state[m].rows){ const q=qm[r.code]; if(!q) continue; r.live=q; r.liveAt=quotes.at; if(q.d>r.a.date){ const b=r.bars.find(b=>b.d===q.d); if(!b) r.bars.push({d:q.d,h:q.h,l:q.l,c:q.p}); else { b.h=Math.max(b.h,q.h); b.l=Math.min(b.l,q.l); b.c=q.p; } } }
+function applyQuotes(m){ const qm=quotes[m]||{}; for(const r of state[m].rows){ const q=qm[r.code]; if(!q) continue; r.live=q; r.liveAt=(m==='US'&&quotes.atFH)||quotes.at; if(q.d>r.a.date){ const b=r.bars.find(b=>b.d===q.d); if(!b) r.bars.push({d:q.d,h:q.h,l:q.l,c:q.p}); else { b.h=Math.max(b.h,q.h); b.l=Math.min(b.l,q.l); b.c=q.p; } } }
   for(const k of CFG[m].idx){ const q=qm[k]; if(q){ state[m].idx[k]=state[m].idx[k]||{name:CFG[m].idxName[k]}; state[m].idx[k].close=q.p; state[m].idx[k].chg=q.chg; state[m].idx[k].lamp=q.chg>0.5?'🟢':q.chg<-0.5?'🔴':'🟡'; } } }
 async function live(){ if(busy||document.hidden) return; const m=market; if(!state[m].rows.length) return;
   try{ quotes=await getJSON('quotes.json'); await loadIntra(); applyQuotes(m); liveLog={at:Date.now(),ok:true,msg:''}; autoCheck(m); resolvePredictions(m); checkAlerts(m); renderAll(); }
@@ -248,9 +248,11 @@ function renderMarket(){ const cfg=CFG[market], st=state[market], rows=st.rows, 
   $('mkTitle').textContent=market==='HK'?'📊 今日港股':'📊 今日美股';
   $('mk').innerHTML=cfg.idx.map(k=>{const v=st.idx[k];return `<div class="bx"><div class="k">${esc((v&&v.name)||cfg.idxName[k])}</div><div class="v">${v&&Number.isFinite(v.close)?v.lamp+' '+pct(v.chg):'—'}</div><div class="k">${v&&Number.isFinite(v.close)?v.close.toLocaleString('en-US',{maximumFractionDigits:0}):''}</div></div>`}).join('')+
   `<div class="bx"><div class="k">廣度（20 日線上）</div><div class="v">${rows.length?(b>=.6?'🟢':b<=.4?'🔴':'🟡')+' '+Math.round(b*100)+'%':'—'}</div><div class="k">${rows.length?rows.filter(r=>r.a.aboveS20).length+'/'+rows.length+' 隻':''}</div></div>`;
-  const lt=quotes.at||0;
+  const lt=(market==='US'&&quotes.atFH)||quotes.at||0;
+  const nG=rows.filter(r=>r.a.lamp==='🟢').length,nY=rows.filter(r=>r.a.lamp==='🟡').length,nR=rows.filter(r=>r.a.lamp==='🔴').length;
+  if(rows.length&&!busy){ const stale=st.date&&(Date.now()-new Date(st.date+'T12:00:00Z'))>4*864e5; $('status').innerHTML=`<div class="${stale?'err':'ok'}">${st.date} 收市掃描 ${rows.length} 隻：🟢 ${nG}　🟡 ${nY}　🔴 ${nR}${stale?'<br>掃描超過 3 個交易日未更新——去 GitHub Actions 睇 scan 有冇失敗。':''}</div>`; }
   const ll=liveLog.at?` · 上次自動更新 ${new Date(liveLog.at).toLocaleTimeString('zh-HK',{hour:'2-digit',minute:'2-digit'})} ${liveLog.ok?'✓':'✗ '+liveLog.msg}`:'';
-  $('asof').textContent=rows.length?`收市掃描 ${st.date||''} · 報價 ${lt?fmtTime(lt):'—'}${market==='US'&&LS.get('fh_key','')?'（Finnhub 即時，每 10 秒）':'（延遲約 15 分鐘，每 5 分鐘更新）'}${ll}`:''; }
+  $('asof').textContent=rows.length?`收市掃描 ${st.date||''} · 報價 ${lt?fmtTime(lt):'—'}${market==='US'&&LS.get('fh_key','')?'（Finnhub 即時，每 10 秒）':'（延遲約 15 分鐘，每 10 分鐘更新）'}${ll}`:''; }
 function cardHTML(r,i){const a=r.a;return `
   <div class="card ${lampCls(a.lamp)}">
     <div class="row"><div class="stock"><a href="#" data-star="${esc(r.code)}" style="text-decoration:none;color:var(--wait)" title="自選">${inWatch(market,r.code)?"★":"☆"}</a> ${esc(r.code)} ${esc(r.name)}<small>${r.live?'報價 '+esc(fmtTime(r.liveAt)):'收市 '+esc(a.date)} · 日均成交 ${CFG[market].cur}${a.turnover.toFixed(0)}M</small></div><div class="lamp"><div class="e">${a.lamp}</div><div class="w">${esc(a.word)}</div></div></div>
@@ -494,7 +496,7 @@ async function finnhubTick(){ const key=LS.get('fh_key',''); if(!key||market!=='
     const codes=[...new Set([...open,...al,...visibleRows().slice(0,20).map(r=>r.code)])].slice(0,25);
     const res=await Promise.all(codes.map(c=>fetch('https://finnhub.io/api/v1/quote?symbol='+encodeURIComponent(c)+'&token='+key).then(r=>r.json()).catch(()=>null)));
     let n=0; quotes.US=quotes.US||{}; codes.forEach((c,i)=>{ const q=res[i]; if(!q||!q.c) return; quotes.US[c]={p:q.c,prev:q.pc,chg:q.dp,h:q.h,l:q.l,d:new Date(q.t*1000).toISOString().slice(0,10)}; n++; });
-    if(n){ quotes.at=new Date().toISOString(); applyQuotes('US'); autoCheck('US'); checkAlerts('US'); liveLog={at:Date.now(),ok:true,msg:'Finnhub 即時 '+n+' 隻'}; renderAll(); }
+    if(n){ quotes.atFH=new Date().toISOString(); applyQuotes('US'); autoCheck('US'); checkAlerts('US'); liveLog={at:Date.now(),ok:true,msg:'Finnhub 即時 '+n+' 隻'}; renderAll(); }
   }catch(e){ liveLog={at:Date.now(),ok:false,msg:'Finnhub: '+(e&&e.message||'')}; renderMarket(); }
   fhBusy=false; }
 function startFinnhub(){ clearInterval(fhTimer); if(LS.get('fh_key','')) { finnhubTick(); fhTimer=setInterval(finnhubTick,10000); } }
