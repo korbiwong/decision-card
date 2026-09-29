@@ -1,0 +1,23 @@
+name: quotes
+on:
+  schedule:
+    - cron: "*/5 1-8 * * 1-5"     # 港股 09:00–16:59 HKT，每 5 分鐘
+    - cron: "*/15 13-20 * * 1-5"  # 美股 09:00–16:59 ET（夏令）
+  workflow_dispatch:
+permissions: { contents: write }
+concurrency: { group: quotes-writes, cancel-in-progress: true }
+jobs:
+  quotes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install yfinance requests pandas
+      - env: { NTFY_TOPIC: "${{ secrets.NTFY_TOPIC }}", MAIL_TO: "${{ secrets.MAIL_TO }}", GMAIL_USER: "${{ secrets.GMAIL_USER }}", GMAIL_APP_PASSWORD: "${{ secrets.GMAIL_APP_PASSWORD }}" }
+        run: python quotes.py
+      - if: always()
+        run: |
+          git config user.name quotes; git config user.email quotes@users.noreply.github.com
+          git add quotes.json intraday.json state.json; git diff --cached --quiet || git commit -m "quotes"
+          for i in 1 2 3 4 5; do git pull --rebase -X theirs && git push && break; sleep 10; done

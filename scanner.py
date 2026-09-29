@@ -87,7 +87,7 @@ def analyse(df, m):
 
 def index_line(sym):
     try:
-        h = yf.Ticker(sym).history(period="10d")["Close"].dropna(); last, prev = float(h.iloc[-1]), float(h.iloc[-2]); d = (last - prev) / prev * 100
+        h = yf.Ticker("HSTECH.HK" if sym == "^HSTECH" else sym).history(period="10d")["Close"].dropna(); last, prev = float(h.iloc[-1]), float(h.iloc[-2]); d = (last - prev) / prev * 100
         return {"close": round(last, 2), "chg": round(d, 2), "lamp": "🟢" if d > 0.5 else "🔴" if d < -0.5 else "🟡"}
     except Exception: return None
 
@@ -109,7 +109,7 @@ def run(m):
         print(f"{min(i+200, len(tickers))}/{len(tickers)} scanned, {len(results)} liquid")
     rows = list(results.values()); above = sum(1 for r in rows if r["aboveS20"]); p = above / len(rows) if rows else 0
     idx = {"HK": [("^HSI", "恒指"), ("^HSTECH", "科指")], "US": [("^GSPC", "S&P 500"), ("^IXIC", "Nasdaq")]}[m]
-    out = {"market": m, "date": rows[0]["date"] if rows else str(dt.date.today()), "generated": dt.datetime.now(HKT).isoformat(timespec="minutes"),
+    out = {"market": m, "date": max(r["date"] for r in rows) if rows else str(dt.date.today()), "generated": dt.datetime.now(HKT).isoformat(timespec="minutes"),
            "indices": [{"sym": s, "name": n, **(index_line(s) or {})} for s, n in idx],
            "breadth": {"above20": above, "total": len(rows), "lamp": "🟢" if p >= .6 else "🔴" if p <= .4 else "🟡"}, "all": rows}
     (ROOT / f"signals_{m}.json").write_text(json.dumps(out, ensure_ascii=False))
