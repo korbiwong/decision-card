@@ -5,6 +5,7 @@ on:
     - cron: "30 21 * * 1-5"
   workflow_dispatch:
 permissions: { contents: write }
+concurrency: { group: scan-writes, cancel-in-progress: false }
 jobs:
   scan:
     runs-on: ubuntu-latest
@@ -17,6 +18,8 @@ jobs:
         run: |
           if [ "${{ github.event.schedule }}" = "30 21 * * 1-5" ]; then python scanner.py US; elif [ "${{ github.event.schedule }}" = "40 9 * * 1-5" ]; then python scanner.py HK; else python scanner.py HK US; fi
           python quotes.py
-      - run: |
+      - if: always()
+        run: |
           git config user.name scanner; git config user.email scanner@users.noreply.github.com
-          git add signals_*.json quotes.json intraday.json state.json; git diff --cached --quiet || (git commit -m "scan $(date +%F)" && git push)
+          git add signals_*.json quotes.json intraday.json state.json; git diff --cached --quiet || git commit -m "scan $(date +%F)"
+          for i in 1 2 3 4 5; do git pull --rebase -X theirs && git push && break; sleep 10; done
