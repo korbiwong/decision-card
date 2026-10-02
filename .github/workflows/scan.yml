@@ -1,8 +1,9 @@
 name: scan
 on:
   schedule:
-    - cron: "40 9 * * 1-5"
-    - cron: "30 21 * * 1-5"
+    - cron: "20 8 * * 1-5"
+    - cron: "20 20 * * 1-5"
+    - cron: "20 21 * * 1-5"
   workflow_dispatch:
 permissions: { contents: write }
 concurrency: { group: scan-writes, cancel-in-progress: false }
@@ -16,7 +17,11 @@ jobs:
       - run: pip install yfinance requests pandas openpyxl lxml
       - env: { NTFY_TOPIC: "${{ secrets.NTFY_TOPIC }}", MAIL_TO: "${{ secrets.MAIL_TO }}", GMAIL_USER: "${{ secrets.GMAIL_USER }}", GMAIL_APP_PASSWORD: "${{ secrets.GMAIL_APP_PASSWORD }}" }
         run: |
-          if [ "${{ github.event.schedule }}" = "30 21 * * 1-5" ]; then python scanner.py US; elif [ "${{ github.event.schedule }}" = "40 9 * * 1-5" ]; then python scanner.py HK; else python scanner.py HK US; fi
+          case "${{ github.event.schedule }}" in
+            "20 8 * * 1-5") python scanner.py HK ;;
+            "20 20 * * 1-5"|"20 21 * * 1-5") python scanner.py US ;;
+            *) python scanner.py HK US ;;
+          esac
           python quotes.py
       - if: always()
         run: |
