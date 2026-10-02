@@ -137,7 +137,7 @@ table.rv{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}table
 
 <details><summary>設定（Claude 功能，選填）</summary>
   <div class="muted">開會、總結＋論據、新聞分析要 Anthropic API key（console.anthropic.com）。冇 key 就淨係睇訊號。Key 只存喺你部機。</div>
-  <div class="ctl"><input id="anKey" type="password" placeholder="Anthropic key sk-ant-…" autocomplete="off"><button class="btn sm" id="anSave">儲存</button></div>
+  <div class="ctl"><input id="anKey" type="password" placeholder="Anthropic key sk-ant-…" autocomplete="off"><button class="btn sm" id="anSave">儲存</button><button class="btn sec sm" id="anTestBtn">測試</button></div><div class="small" id="anTest"></div>
   <div class="muted">美股即時價（免費）：去 finnhub.io 登記，攞 API key 貼呢度。有 key 嘅話美股 tab 每 10 秒更新，真即時。港股 Finnhub 免費版冇，維持 15 分鐘延遲。</div>
   <div class="ctl"><input id="fhKey" type="password" placeholder="Finnhub key" autocomplete="off"><button class="btn sm" id="fhSave">儲存</button></div>
   <div class="muted" style="padding-bottom:12px">匯出去 GitHub：<button class="btn sec sm" id="exTrades">paper trades</button> <button class="btn sec sm" id="exReal">真實買賣</button> <button class="btn sec sm" id="exParams">參數</button>（貼落 repo 對應嘅 json 檔）</div>
@@ -288,11 +288,27 @@ function renderAll(){ renderMarket(); renderCards(); renderSummary(); renderLog(
 
 /* ---------- Claude via Anthropic API (optional key) ---------- */
 const anKey=()=>LS.get('an_key','');
-async function claudeJSON(prompt,useSearch){ const key=anKey(); if(!key) throw {code:'nokey'};
-  const body={model:'claude-sonnet-4-6',max_tokens:2000,messages:[{role:'user',content:prompt}]}; if(useSearch) body.tools=[{type:'web_search_20250305',name:'web_search',max_uses:3}];
-  const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify(body)});
-  const j=await r.json(); if(j.error) throw new Error(j.error.message);
-  const t=j.content.filter(b=>b.type==='text').map(b=>b.text).join('').replace(/```json|```/g,'').trim(); const a=t.indexOf('{'), b=t.lastIndexOf('}'); return JSON.parse(t.slice(a,b+1)); }
+function parseLooseJSON(t){ t=t.replace(/```json|```/g,'').trim(); const starts=[]; for(let k=0;k<t.length;k++) if(t[k]==='{') starts.push(k);
+  const end=t.lastIndexOf('}'); for(const a of starts){ try{ return JSON.parse(t.slice(a,end+1)); }catch(e){} } throw new Error('Claude 回覆唔係完整 JSON（可能太長被截斷），再撳一次'); }
+function apiErr(status,j){ const m=(j&&j.error&&j.error.message)||''; const ty=(j&&j.error&&j.error.type)||'';
+  if(status===401||ty==='authentication_error') return 'API key 唔啱：重新喺 console.anthropic.com 整一條，貼落「設定」。';
+  if(/credit balance/i.test(m)) return '戶口冇餘額：去 console.anthropic.com → Billing 增值。';
+  if(status===403||ty==='permission_error') return 'Key 冇權限（'+m+'）';
+  if(status===429) return '太密，等一分鐘再試。';
+  if(status===529||ty==='overloaded_error') return 'Claude 而家好忙，等陣再試。';
+  return 'API 錯誤 '+status+'：'+m; }
+async function claudeRaw(body){ const key=anKey(); if(!key) throw {code:'nokey'};
+  let r; try{ r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify(body)}); }
+  catch(e){ throw new Error('連唔到 Anthropic（網絡或者瀏覽器阻擋）：'+e.message); }
+  let j=null; try{ j=await r.json(); }catch(e){} if(!r.ok||!j||j.error) throw new Error(apiErr(r.status,j)); return j; }
+async function claudeJSON(prompt,useSearch){
+  const body={model:'claude-sonnet-4-6',max_tokens:6000,messages:[{role:'user',content:prompt}]}; if(useSearch) body.tools=[{type:'web_search_20250305',name:'web_search',max_uses:3}];
+  let texts=[]; for(let turn=0;turn<4;turn++){ const j=await claudeRaw(body); texts.push(...j.content.filter(b=>b.type==='text').map(b=>b.text));
+    if(j.stop_reason==='pause_turn'){ body.messages=[...body.messages,{role:'assistant',content:j.content}]; continue; }
+    if(j.stop_reason==='max_tokens') throw new Error('回覆太長被截斷，再撳一次');
+    break; }
+  return parseLooseJSON(texts.join('')); }
+async function testKey(){ const out=$('anTest'); out.textContent='測試緊…'; try{ const j=await claudeRaw({model:'claude-sonnet-4-6',max_tokens:20,messages:[{role:'user',content:'Reply with OK'}]}); out.innerHTML='<span style="color:var(--go)">✅ Key 用得（'+esc(j.model)+'）</span>'; }catch(e){ out.innerHTML='<span style="color:var(--stop)">❌ '+esc(e&&e.code==='nokey'?'未貼 key':e.message)+'</span>'; } }
 function facts(r){const a=r.a;return `股票：${r.code} ${r.name}（${market==='HK'?'港股':'美股'}）｜現價 ${money(a.entry)}，今日 ${pct(a.chg)}
 規則訊號：${a.lamp} ${a.word}。趨勢 ${a.trend}；20 日線 ${money(a.s20)}，50 日線 ${a.s50?money(a.s50):'—'}，200 日線 ${a.s200?money(a.s200):'—'}；成交係平時 ${a.volR.toFixed(1)} 倍；ATR ${a.atrP.toFixed(1)}%
 理想買入區 ${a.zone?money(a.zone[0])+'–'+money(a.zone[1]):'冇（趨勢向下）'}｜🛑止蝕 ${money(a.stop)}（−${a.riskP.toFixed(1)}%）｜T1 ${money(a.t1)}｜T2 ${money(a.t2)}（+${a.rewP.toFixed(1)}%）｜R:R ${a.rr.toFixed(1)}:1
@@ -502,7 +518,7 @@ async function finnhubTick(){ const key=LS.get('fh_key',''); if(!key||market!=='
 function startFinnhub(){ clearInterval(fhTimer); if(LS.get('fh_key','')) { finnhubTick(); fhTimer=setInterval(finnhubTick,10000); } }
 /* ---------- exports / settings ---------- */
 async function copyText(txt,msg){ try{ await navigator.clipboard.writeText(txt); toast(msg); }catch(e){ prompt('Copy：',txt); } }
-$('anKey').value=anKey(); $('anSave').onclick=()=>{ LS.set('an_key',$('anKey').value.trim()); toast('已儲存 key'); };
+$('anKey').value=anKey(); $('anSave').onclick=()=>{ LS.set('an_key',$('anKey').value.trim().replace(/\s+/g,'')); toast('已儲存 key'); testKey(); }; $('anTestBtn').onclick=testKey;
 $('fhKey').value=LS.get('fh_key',''); $('fhSave').onclick=()=>{ LS.set('fh_key',$('fhKey').value.trim()); toast('已儲存，美股 tab 會每 10 秒更新'); startFinnhub(); };
 $('exTrades').onclick=()=>copyText(JSON.stringify(LS.get('pt_log',[]).filter(e=>e.status==='open').map(e=>({m:e.m,code:e.code,name:e.name,entry:e.entry,target:e.target,stop:e.stop,status:'open'})),null,1),'已 copy，貼落 trades.json');
 $('exReal').onclick=()=>copyText(JSON.stringify(LS.get(RK,[]).filter(e=>e.sell==null).map(e=>({m:e.m,code:e.code,name:e.name,buy:e.buy,qty:e.qty,stop:e.stop,target:e.target})),null,1),'已 copy，貼落 real.json');
