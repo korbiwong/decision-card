@@ -262,7 +262,7 @@ function cardHTML(r,i){const a=r.a;return `
     <div class="stats"><div class="st">🎯 目標<b class="go">${money(a.target)}</b>${pct(a.rewP)}</div><div class="st">🛑 止蝕<b class="stop">${money(a.stop)}</b>−${a.riskP.toFixed(1)}%</div><div class="st">R:R<b>${a.rr.toFixed(1)} : 1</b>ATR ${a.atrP.toFixed(1)}%</div></div>
     <div class="why"><b>點解？</b> ${esc(a.why)}<br><span class="muted">最大風險：跌穿 ${money(a.stop)}，趨勢假設失效。</span></div>
     <div class="acts"><button class="btn" data-council="${i}">👥 五人開會</button><button class="btn sec" data-sum="${i}">📋 總結</button><button class="btn sec" data-save="${i}">記低 paper trade</button><button class="btn sec" data-real="${i}">💰 我買咗</button></div>
-    <div class="council" id="c${i}"></div>
+    <div class="council" ${panelAttr('council',r)}>${panelHtml('council',r)}</div>
   </div>`;}
 function renderCards(){ const list=visibleRows(), rows=state[market].rows;
   if(!list.length&&!(filter==='watch'&&watchOf(market).length)){ $('cards').innerHTML=`<div class="panel muted">${rows.length?(filter==='top'?'今日冇 🟢，唔做都係一個決定。睇下「全部」。':filter==='day'?'而家冇即日數據（未開市，或者 quotes 未跑）。':filter==='watch'?'未有自選。卡上撳 ☆ 加。':'呢個燈冇股票。'):'等緊報價…'}</div>`; return; }
@@ -283,7 +283,7 @@ function renderSummary(){ const rows=state[market].rows; if(!rows.length){$('sum
     ${dayLine(r)}
     <div class="why"><b>點解？</b> ${esc(a.why)}</div>
     <div class="acts"><button class="btn" data-gen="${i}">✍️ 總結＋論據</button><button class="btn sec" data-news="${i}">📰 新聞分析</button><button class="btn sec" data-save="${i}">記低</button></div>
-    <div class="sumbox" id="s${i}"></div><div class="newsbox" id="n${i}"></div></div>`}).join(''); }
+    <div class="sumbox" ${panelAttr('sum',r)}>${panelHtml('sum',r)}</div><div class="newsbox" ${panelAttr('news',r)}>${panelHtml('news',r)}</div></div>`}).join(''); }
 function renderAll(){ renderMarket(); renderCards(); renderSummary(); renderLog(); renderWl(); renderReview(); renderReal(); renderAlerts(); }
 
 /* ---------- Claude via Anthropic API (optional key) ---------- */
@@ -331,14 +331,24 @@ function newsPromptS(r){ return `${RULES}\n用 web_search 搵 ${r.name}（${r.co
 async function newsFor(r,el){ el.innerHTML='<div class="muted">搵緊新聞…（20–40 秒）</div>'; await askJSON(el,newsPromptS(r),res=>{ const items=res.items||[]; el.innerHTML=`<div class="sum">${esc(res.overallLamp||'')} ${esc(res.overall)}</div>`+(items.length?items.map(n=>{const cls=n.verdict==='利好'?'good':n.verdict==='利淡'?'bad':'';return `<div class="news"><span class="v ${cls}">${esc(n.verdict||'—')}</span> ${esc(n.title)}<br><span class="muted">${esc(n.reason||'')}</span> ${n.url?`<a href="${esc(n.url)}" target="_blank" rel="noopener">來源</a>`:''} <span class="small">${esc(n.date||'')}</span></div>`}).join(''):'<div class="muted">搵唔到相關新聞。</div>'); },true); }
 document.addEventListener('click',async ev=>{
   const b=ev.target.closest('button'); if(!b) return; const rows=state[market].rows;
-  if(b.dataset.council!=null){ const i=+b.dataset.council,r=rows[i],el=$('c'+i); if(el.style.display==='block'){el.style.display='none';return} el.style.display='block'; el.innerHTML='<div class="muted">開緊會…（10–40 秒）</div>'; askJSON(el,councilPrompt(r),res=>showCouncil(el,res)); }
+  if(b.dataset.council!=null){ const i=+b.dataset.council,r=rows[i],el=sink('council',r); if(el.style.display==='block'){el.style.display='none';return} el.style.display='block'; el.innerHTML='<div class="muted">開緊會…（10–40 秒）</div>'; askJSON(el,councilPrompt(r),res=>showCouncil(el,res)); }
   if(b.dataset.sum!=null){ view='summary'; setView(); window.scrollTo({top:$('v-summary').offsetTop-10,behavior:'smooth'}); }
-  if(b.dataset.gen!=null){ const i=+b.dataset.gen,r=rows[i],el=$('s'+i); genSummary(r,el); }
-  if(b.dataset.news!=null){ const i=+b.dataset.news,r=rows[i],el=$('n'+i); if(el.style.display==='block'&&el.innerHTML){el.style.display='none';return} el.style.display='block'; newsFor(r,el); }
+  if(b.dataset.gen!=null){ const i=+b.dataset.gen,r=rows[i],el=sink('sum',r); genSummary(r,el); }
+  if(b.dataset.news!=null){ const i=+b.dataset.news,r=rows[i],el=sink('news',r); if(el.style.display==='block'&&el.innerHTML){el.style.display='none';return} el.style.display='block'; newsFor(r,el); }
   if(b.dataset.save!=null){ const r=rows[+b.dataset.save],a=r.a,log=LS.get('pt_log',[]);
     log.unshift({id:Date.now(),m:market,code:r.code,name:r.name,entry:a.entry,target:a.target,stop:a.stop,rr:a.rr,riskP:a.riskP,rewP:a.rewP,lamp:a.lamp,date:a.date,status:'open'});
     LS.set('pt_log',log); renderLog(); const orig=b.textContent; b.textContent='已記低'; setTimeout(()=>b.textContent=orig,1200); }
 });
+
+/* ---------- panels survive auto-refresh ---------- */
+const panels={};
+function pkey(kind,r){ return market+'|'+r.code+'|'+kind; }
+function panelAttr(kind,r){ const k=pkey(kind,r), p=panels[k]; return `data-panel="${esc(k)}" style="display:${p&&p.open?'block':'none'}"`; }
+function panelHtml(kind,r){ const p=panels[pkey(kind,r)]; return p?p.html:''; }
+function sink(kind,r){ const k=pkey(kind,r); panels[k]=panels[k]||{open:false,html:''};
+  const sync=()=>document.querySelectorAll('[data-panel]').forEach(d=>{ if(d.dataset.panel===k){ d.innerHTML=panels[k].html; d.style.display=panels[k].open?'block':'none'; } });
+  return { get innerHTML(){ return panels[k].html; }, set innerHTML(h){ panels[k].html=h; panels[k].open=true; sync(); },
+           style:{ get display(){ return panels[k].open?'block':'none'; }, set display(v){ panels[k].open=(v==='block'); sync(); } } }; }
 
 /* ---------- paper trades ---------- */
 function autoCheck(m){ const log=LS.get('pt_log',[]); let n=0;
