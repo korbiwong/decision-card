@@ -9,6 +9,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon.png">
 <meta name="theme-color" content="#14213d">
+<meta name="app-version" content="2026-10-08a">
 <title>決策卡 · 港股 · 美股</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -78,7 +79,7 @@ table.rv{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}table
 </head>
 <body><div class="wrap">
 <div style="display:flex;align-items:center;gap:10px"><svg width="40" height="40" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#14213d"/><polyline points="10,44 22,34 30,38 42,24 54,16" fill="none" stroke="#3fbf83" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><polyline points="44,16 54,16 54,26" fill="none" stroke="#3fbf83" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><rect x="10" y="50" width="44" height="4" rx="2" fill="#5f83ff"/></svg><h1>決策卡</h1></div>
-<div class="sub">開咗就自動掃。先計輸幾多，再諗賺幾多。</div>
+<div class="sub">開咗就自動掃。先計輸幾多，再諗賺幾多。 <span class="small">v2026-10-08a</span></div>
 
 <div class="mtabs"><button class="mtab on" data-m="HK">🇭🇰 港股</button><button class="mtab" data-m="US">🇺🇸 美股</button></div>
 
@@ -249,10 +250,17 @@ function renderMarket(){ const cfg=CFG[market], st=state[market], rows=st.rows, 
   $('mk').innerHTML=cfg.idx.map(k=>{const v=st.idx[k];return `<div class="bx"><div class="k">${esc((v&&v.name)||cfg.idxName[k])}</div><div class="v">${v&&Number.isFinite(v.close)?v.lamp+' '+pct(v.chg):'—'}</div><div class="k">${v&&Number.isFinite(v.close)?v.close.toLocaleString('en-US',{maximumFractionDigits:0}):''}</div></div>`}).join('')+
   `<div class="bx"><div class="k">廣度（20 日線上）</div><div class="v">${rows.length?(b>=.6?'🟢':b<=.4?'🔴':'🟡')+' '+Math.round(b*100)+'%':'—'}</div><div class="k">${rows.length?rows.filter(r=>r.a.aboveS20).length+'/'+rows.length+' 隻':''}</div></div>`;
   const lt=(market==='US'&&quotes.atFH)||quotes.at||0;
+  const tzN=market==='HK'?'Asia/Hong_Kong':'America/New_York';
+  const nowLoc=new Date(new Date().toLocaleString('en-US',{timeZone:tzN})), qLoc=lt?new Date(new Date(lt).toLocaleString('en-US',{timeZone:tzN})):null;
+  const wk=nowLoc.getDay()>=1&&nowLoc.getDay()<=5, hm=nowLoc.getHours()*60+nowLoc.getMinutes(), open=570, close=960;
+  let qNote=''; if(qLoc&&wk){ const sameDay=qLoc.toDateString()===nowLoc.toDateString(), qhm=qLoc.getHours()*60+qLoc.getMinutes(), ageMin=(nowLoc-qLoc)/60000;
+    if(hm>=open&&hm<close&&ageMin>40) qNote='⚠️ 報價 '+Math.round(ageMin)+' 分鐘冇更新（GitHub 排程漏咗）。即時價請睇 Futubull。';
+    else if(hm>=close&&sameDay&&qhm<close-10) qNote='⚠️ 已收市，但報價停喺 '+qLoc.toTimeString().slice(0,5)+'，唔係收市價。收市價要等收市掃描。';
+    else if(hm>=close&&sameDay) qNote='已收市'; }
   const nG=rows.filter(r=>r.a.lamp==='🟢').length,nY=rows.filter(r=>r.a.lamp==='🟡').length,nR=rows.filter(r=>r.a.lamp==='🔴').length;
   if(rows.length&&!busy){ const stale=st.date&&(Date.now()-new Date(st.date+'T12:00:00Z'))>4*864e5; $('status').innerHTML=`<div class="${stale?'err':'ok'}">${st.date} 收市掃描 ${rows.length} 隻：🟢 ${nG}　🟡 ${nY}　🔴 ${nR}${stale?'<br>掃描超過 3 個交易日未更新——去 GitHub Actions 睇 scan 有冇失敗。':''}</div>`; }
   const ll=liveLog.at?` · 上次自動更新 ${new Date(liveLog.at).toLocaleTimeString('zh-HK',{hour:'2-digit',minute:'2-digit'})} ${liveLog.ok?'✓':'✗ '+liveLog.msg}`:'';
-  $('asof').textContent=rows.length?`收市掃描 ${st.date||''} · 報價 ${lt?fmtTime(lt):'—'}${market==='US'&&LS.get('fh_key','')?'（Finnhub 即時，每 10 秒）':'（延遲約 15 分鐘，每 10 分鐘更新）'}${ll}`:''; }
+  $('asof').innerHTML=rows.length?`收市掃描 ${st.date||''} · 報價 ${lt?fmtTime(lt):'—'}${qNote?' <b style="color:var(--'+(qNote.startsWith('⚠')?'stop':'go')+')">'+esc(qNote)+'</b>':''}${market==='US'&&LS.get('fh_key','')?'（Finnhub 即時，每 10 秒）':'（延遲約 15 分鐘，每 10 分鐘更新）'}${ll}`:''; }
 function cardHTML(r,i){const a=r.a;return `
   <div class="card ${lampCls(a.lamp)}">
     <div class="row"><div class="stock"><a href="#" data-star="${esc(r.code)}" style="text-decoration:none;color:var(--wait)" title="自選">${inWatch(market,r.code)?"★":"☆"}</a> ${esc(r.code)} ${esc(r.name)}<small>${r.live?'報價 '+esc(fmtTime(r.liveAt)):'收市 '+esc(a.date)} · 日均成交 ${CFG[market].cur}${a.turnover.toFixed(0)}M</small></div><div class="lamp"><div class="e">${a.lamp}</div><div class="w">${esc(a.word)}</div></div></div>
@@ -533,6 +541,9 @@ $('fhKey').value=LS.get('fh_key',''); $('fhSave').onclick=()=>{ LS.set('fh_key',
 $('exTrades').onclick=()=>copyText(JSON.stringify(LS.get('pt_log',[]).filter(e=>e.status==='open').map(e=>({m:e.m,code:e.code,name:e.name,entry:e.entry,target:e.target,stop:e.stop,status:'open'})),null,1),'已 copy，貼落 trades.json');
 $('exReal').onclick=()=>copyText(JSON.stringify(LS.get(RK,[]).filter(e=>e.sell==null).map(e=>({m:e.m,code:e.code,name:e.name,buy:e.buy,qty:e.qty,stop:e.stop,target:e.target})),null,1),'已 copy，貼落 real.json');
 $('exParams').onclick=()=>copyText(JSON.stringify(P,null,1),'已 copy，貼落 params.json（scanner 下次掃描會用）');
+/* ---------- self-update (home-screen apps cache old versions) ---------- */
+async function checkVersion(){ try{ const t=await (await fetch('index.html?_='+Date.now(),{cache:'no-store'})).text(); const m=t.match(/name="app-version" content="([^"]+)"/); const cur=document.querySelector('meta[name="app-version"]').content; if(m&&m[1]!==cur){ toast('有新版本，重新載入緊…'); setTimeout(()=>location.replace(location.pathname+'?v='+m[1]),800); } }catch(e){} }
+checkVersion(); document.addEventListener('visibilitychange',()=>{ if(!document.hidden) checkVersion(); });
 /* ---------- boot ---------- */
 renderAll();
 (async()=>{ await scan(market); liveTimer=setInterval(live,3*60*1000); startFinnhub(); document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ live(); finnhubTick(); } }); })();
