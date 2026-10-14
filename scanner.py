@@ -10,8 +10,10 @@ P = json.loads((ROOT / "params.json").read_text()) if (ROOT / "params.json").exi
 def prm(k, d): return P.get(k, d)
 
 HKEX_LIST = "https://www.hkex.com.hk/eng/services/trading/securities/securitieslists/ListOfSecurities.xlsx"
-MIN_TURNOVER = {"HK": 2e7, "US": 5e7}
-MIN_PRICE = {"HK": 1.0, "US": 5.0}
+# 盡量多分析：港股日均成交 ≥ HK$5M、股價 ≥ $0.5；美股日均成交 ≥ US$20M、股價 ≥ $3（再低就太難買賣）
+MIN_TURNOVER = {"HK": 5e6, "US": 2e7}
+MIN_PRICE = {"HK": 0.5, "US": 3.0}
+import time
 
 def universe(m):
     out_path = ROOT / f"signals_{m}.json"
@@ -29,14 +31,38 @@ def universe(m):
             if len(codes) > 500: return codes
         else:
             UA={"User-Agent":"Mozilla/5.0 (decision-card scanner)"}
-            tabs = pd.read_html(io.StringIO(requests.get("https://en.wikipedia.org/wiki/List_of_S%26P_500_companies", headers=UA, timeout=60).text))
-            df = tabs[0]; codes = {str(s).replace(".", "-"): str(n)[:24] for s, n in zip(df["Symbol"], df["Security"])}
+            codes = {}
+            # S&P 500 / 400（中型）/ 600（細型）
+            for page in ["List_of_S%26P_500_companies", "List_of_S%26P_400_companies", "List_of_S%26P_600_companies"]:
+                try:
+                    tabs = pd.read_html(io.StringIO(requests.get("https://en.wikipedia.org/wiki/" + page, headers=UA, timeout=60).text))
+                    for t in tabs:
+                        sc = next((c for c in t.columns if str(c) in ("Symbol", "Ticker symbol", "Ticker")), None)
+                        nc = next((c for c in t.columns if str(c) in ("Security", "Company")), None)
+                        if sc is None or nc is None: continue
+                        for s_, n in zip(t[sc], t[nc]): codes.setdefault(str(s_).strip().replace(".", "-"), str(n)[:24])
+                        break
+                except Exception as e: print("wiki failed", page, e)
             try:
                 t2 = pd.read_html(io.StringIO(requests.get("https://en.wikipedia.org/wiki/Nasdaq-100", headers=UA, timeout=60).text))
                 for t in t2:
                     if "Ticker" in t.columns:
-                        for s, n in zip(t["Ticker"], t.iloc[:, 0]): codes.setdefault(str(s).replace(".", "-"), str(n)[:24])
+                        for s_, n in zip(t["Ticker"], t.iloc[:, 0]): codes.setdefault(str(s_).replace(".", "-"), str(n)[:24])
             except Exception: pass
+            # 全美國上市普通股（Nasdaq 交易所目錄，包埋 NYSE），之後用成交額過濾
+            try:
+                txt = requests.get("https://www.nasdaqtrader.com/dynamic/SymDir/nasdaqtraded.txt", headers=UA, timeout=60).text
+                lines = txt.strip().splitlines(); hdr = lines[0].split("|")
+                iS, iN, iE, iT = hdr.index("Symbol"), hdr.index("Security Name"), hdr.index("ETF"), hdr.index("Test Issue")
+                bad = ("warrant", " unit", " right", "preferred", "notes due", "debenture", "%", "depositary share representing")
+                for ln in lines[1:]:
+                    p = ln.split("|")
+                    if len(p) <= max(iS, iN, iE, iT) or p[iE] != "N" or p[iT] != "N": continue
+                    sym, nm = p[iS].strip(), p[iN].strip()
+                    if not sym or not sym.isalpha() or len(sym) > 5 or any(b in nm.lower() for b in bad): continue
+                    codes.setdefault(sym, nm.split(" - ")[0][:24])
+            except Exception as e: print("nasdaqtraded failed", e)
+            print("US raw universe", len(codes))
             if len(codes) > 300: return codes
     except Exception as e:
         print("universe failed", m, e)
@@ -97,8 +123,12 @@ def run(m):
     tickers = [tick(c) for c in codes]; results = {}
     for i in range(0, len(tickers), 200):
         batch = tickers[i:i + 200]
-        try: data = yf.download(batch, period="1y", interval="1d", group_by="ticker", auto_adjust=False, threads=True, progress=False)
-        except Exception as e: print("batch failed", e); continue
+        data = None
+        for attempt in range(3):
+            try: data = yf.download(batch, period="1y", interval="1d", group_by="ticker", auto_adjust=False, threads=True, progress=False); break
+            except Exception as e: print("batch failed", attempt, e); time.sleep(20 * (attempt + 1))
+        if data is None or data.empty: continue
+        time.sleep(1)
         # Yahoo 嘅 1 年數據有時會遲幾日，用最近 5 日數據補返最新幾支日線
         try: fresh = yf.download(batch, period="5d", interval="1d", group_by="ticker", auto_adjust=False, threads=True, progress=False)
         except Exception as e: print("fresh failed", e); fresh = None
