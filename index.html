@@ -9,7 +9,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon.png">
 <meta name="theme-color" content="#14213d">
-<meta name="app-version" content="2026-10-14a">
+<meta name="app-version" content="2026-10-14b">
 <title>決策卡 · 港股 · 美股</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -56,6 +56,7 @@ h2{font-size:17px;margin:22px 0 10px}
 .chair{border-radius:12px;padding:10px 12px;margin-top:8px;background:var(--gos);font-size:14px}.chair.stop{background:var(--stops)}.chair.wait{background:var(--waits)}.chair div{margin:3px 0}
 .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;background:var(--field);color:var(--ink2);margin-left:6px;vertical-align:middle;font-weight:500}
 .zone{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}.z{border-radius:12px;padding:10px 12px;font-size:13px}.z b{display:block;font-size:17px;font-weight:900}.z.buy{background:var(--gos)}.z.sell{background:var(--field)}.z.stop{background:var(--stops)}
+.kid{background:var(--page);border-radius:12px;padding:10px 12px;margin-top:8px;font-size:14px;line-height:1.6}.kid h4{margin:10px 0 4px;font-size:14px}.kid ul{margin:0;padding-left:18px}.kid .big{font-size:15px;font-weight:700}.kid .g{color:var(--go)}.kid .r{color:var(--stop)}.kid .y{color:var(--wait)}
 .plan{font-size:14px;line-height:1.55}.plan h4{margin:10px 0 4px;font-size:14px}.plan ul{margin:0;padding-left:18px}
 .news{border-top:1px solid var(--rule);padding:8px 0;font-size:14px}.news .v{font-weight:900}.news .v.good{color:var(--go)}.news .v.bad{color:var(--stop)}.news a{color:var(--act);text-decoration:none;font-size:12px}
 .log{display:flex;flex-direction:column;gap:8px}.en{background:var(--paper);border-radius:12px;padding:10px 12px;box-shadow:var(--sh);border-left:6px solid var(--light);--light:var(--ink3);font-size:14px}
@@ -152,6 +153,20 @@ table.rv{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}table
   <div class="small" id="wl"></div>
 </details>
 
+<details><summary>📖 新手字典（完全唔識股票睇呢度）</summary><div class="plan" style="padding-bottom:12px"><ul>
+<li><b>🟢🟡🔴 燈</b>：🟢 可以考慮買少少；🟡 留意住，未係時候；🔴 唔好買。</li>
+<li><b>20／50／200 日線</b>：過去 20 日（約一個月）、50 日（約兩個半月）、200 日（約一年）嘅平均價。股價喺線上面＝買咗嘅人平均賺緊錢，趨勢向上。</li>
+<li><b>買入區</b>：建議喺呢個價錢範圍先買，太貴就唔追。</li>
+<li><b>止蝕</b>：跌到呢個價就認輸賣出。細蝕好過大蝕，係保命繩。</li>
+<li><b>T1／T2</b>：目標價。到 T1 先賣一半鎖住利潤，到 T2 賣晒。</li>
+<li><b>R:R（賺蝕比）</b>：冒 $1 風險可以搏幾多。2 即係蝕 $1、賺 $2。低過 1.5 唔抵。</li>
+<li><b>ATR</b>：平均一日上落幾多 %。愈大愈刺激，亦愈易蝕。</li>
+<li><b>成交量倍數</b>：今日成交係平時幾多倍。高＝好多人留意；突破加高成交先可信。</li>
+<li><b>突破</b>：升穿過去一個月最高價，可能開始新一浪升。</li>
+<li><b>回調</b>：升緊嘅股暫時跌返落嚟，好似減價，係入場機會。</li>
+<li><b>VWAP</b>：今日所有成交嘅平均價。即日炒用：股價喺 VWAP 上面＝今日買家較強。</li>
+<li><b>Paper trade</b>：用假錢練習，記錄晒，等你知自己準唔準先用真錢。</li>
+</ul></div></details>
 <details><summary>訊號同買賣價點計？</summary>
   <div class="muted" style="padding-bottom:12px;line-height:1.6">
   全部係透明規則，唔係預測。<br>
@@ -324,8 +339,55 @@ function renderSummary(){ const rows=state[market].rows; document.querySelectorA
     ${planZone(pl)}
     ${sumH==='day'?`<div class="small">VWAP ${money(pl.extra.vwap)} · 開市區間 ${money(pl.extra.orbL)}–${money(pl.extra.orbH)} · 成交 ${pl.extra.volR.toFixed(1)}× · 數據 ${esc(fmtTime(pl.extra.at))}</div>`:''}
     <div class="why"><b>點解？</b> ${esc(pl.why)}</div>
+    ${kidHTML(r,pl,sumH)}
     <div class="acts"><button class="btn" data-gen="${i}">✍️ 總結＋論據</button><button class="btn sec" data-news="${i}">📰 新聞分析</button><button class="btn sec" data-saveplan="${i}">記低</button></div>
     <div class="sumbox" ${panelAttr('sum-'+sumH,r)}>${panelHtml('sum-'+sumH,r)}</div><div class="newsbox" ${panelAttr('news',r)}>${panelHtml('news',r)}</div></div>`}).join(''); }
+/* ---------- 🧒 新手解釋（規則生成，唔使 API key） ---------- */
+function kidHTML(r,pl,h){ const a=r.a, p=r.live?r.live.p:a.entry, chg=r.live?r.live.chg:a.chg, K=1000;
+  const per=x=>CFG[market].cur+Math.abs(x/100*K).toFixed(0);
+  const pos=(ma,lbl,len)=>ma?`<li>${lbl}（${len}平均價）係 ${money(ma)}，股價${p>=ma?'<b class="g">喺佢上面</b>':'<b class="r">喺佢下面</b>'} ${pct((p/ma-1)*100)}。${p>=ma?'即係呢段時間買咗嘅人平均都賺緊錢，買家佔上風。':'即係呢段時間買咗嘅人平均都蝕緊，賣壓較大。'}</li>`:'';
+  const one=pl.lamp==='🟢'?'<span class="g">可以考慮買少少</span>（跟住下面嘅買入區同止蝕）':pl.lamp==='🟡'?'<span class="y">可以放入觀察，但未係最好時機</span>':'<span class="r">唔好買</span>';
+  const buy=[],hold=[],risk=[];
+  if(p>a.s20) buy.push('股價高過一個月平均價：最近買嘅人多過賣嘅人。');
+  if(a.s50&&p>a.s50) buy.push('股價高過兩個半月平均價：中期趨勢向上。');
+  if(a.s200&&p>a.s200) buy.push('股價高過一年平均價：長期趨勢健康，順風而行。');
+  if(a.setup==='breakout') buy.push(`升穿咗過去一個月最高位，而且成交係平時 ${a.volR.toFixed(1)} 倍：好多人一齊追買，有機會開始一浪新升勢。`);
+  if(a.setup==='pullback') buy.push('上升途中跌返落一個月平均價附近：好似「減價」，係較安全嘅入場位。');
+  if(h==='mid'&&a.s50&&p>a.s50&&p<=a.s50*1.06) buy.push('貼近 50 日線：中線嚟講係支持位，跌到呢度通常有人接貨。');
+  if(h==='day'&&pl.extra){ const d=pl.extra; if(p>d.vwap) buy.push(`今日股價高過 VWAP ${money(d.vwap)}（今日所有成交嘅平均價）：今日入面買家較強。`); if(d.volR>1.3) buy.push(`今日成交係平時 ${d.volR.toFixed(1)} 倍：有人留意緊。`); }
+  if(pl.rr!=null&&pl.rr>=2) buy.push(`賺蝕比 ${pl.rr.toFixed(1)}：計落如果啱，賺嘅錢係蝕嘅錢 ${pl.rr.toFixed(1)} 倍。`);
+  if(!buy.length) buy.push('暫時搵唔到清楚嘅買入理由——冇理由就唔使買。');
+  const alive=p>pl.stop;
+  if(alive) hold.push(`未跌穿止蝕 ${money(pl.stop)}：計劃仲有效，唔使因為一兩日上落就賣。`); else hold.push(`已經跌穿止蝕 ${money(pl.stop)}：<b class="r">唔建議再揸</b>，認錯離場保住本金。`);
+  if(alive&&a.s50&&p>a.s50) hold.push('仲企喺 50 日線上面：中期支持未失。');
+  if(alive&&a.s200&&p>a.s200) hold.push('仲喺 200 日線上面：長期趨勢未壞。');
+  if(alive&&pl.t1!=null&&p<pl.t1) hold.push(`未到 T1 ${money(pl.t1)}：目標未到，可以等。到咗 T1 先賣一半鎖住利潤。`);
+  if(alive&&pl.t1!=null&&p>=pl.t1) hold.push(`已經過咗 T1 ${money(pl.t1)}：應該已經賣咗一半，剩低嗰半可以把止蝕上移到買入價，變成「唔會蝕」嘅一注。`);
+  if(h==='long'&&alive) hold.push('長線冇固定目標：只要收市未跌穿止蝕，就唔使理短期新聞噪音。');
+  if(h==='day') hold.splice(0,hold.length,'即日炒唔應該「持有」：收市前一定要賣晒，唔好留過夜。');
+  if(a.s200&&p<a.s200) risk.push('股價低過一年平均價：長期趨勢向下，好似逆水行舟，反彈好多時都係短暫。');
+  if(a.setup==='over') risk.push(`今日升得太急（${pct(chg)}）：急升之後好多時會回落，而家追入好易買喺高位。`);
+  if(a.atrP>4) risk.push(`上落好大：平時一日可以郁 ${a.atrP.toFixed(1)}%，即係每 ${CFG[market].cur}1,000 一日上落 ${per(a.atrP)}，心理要頂得住。`);
+  if(pl.riskP>8) risk.push(`止蝕位離得遠（−${pl.riskP.toFixed(1)}%）：一錯就蝕得多，應該買細注啲。`);
+  if(a.volR<0.8&&h!=='long') risk.push(`成交少過平時（${a.volR.toFixed(1)} 倍）：升都升得冇乜力，可能好快停。`);
+  if(pl.rr!=null&&pl.rr<1.5) risk.push(`賺蝕比只得 ${pl.rr.toFixed(1)}：賺嘅唔夠抵返蝕嘅風險。`);
+  if(h==='day') risk.push('即日炒最易蝕：報價有延遲、手續費食利潤，新手建議先用 paper trade 練。');
+  if(market==='HK') risk.push('港股報價延遲約 15 分鐘：落單前一定要喺 Futubull 睇即時價，止蝕單都喺 Futubull 設。');
+  risk.push('呢度只係睇價格圖表，冇計公司賺唔賺錢、有冇壞消息——撳「📰 新聞分析」或者「✍️ 總結＋論據」睇埋新聞。');
+  const ex=pl.t1!=null?`如果你用 ${CFG[market].cur}1,000 喺 ${money(pl.entry)} 買：<br>· 跌到止蝕 ${money(pl.stop)} 就賣 → 最多蝕大約 <b class="r">${per(pl.riskP)}</b>（如果一開市就跳低，可能蝕多少少）<br>· 升到 T1 ${money(pl.t1)} 賣一半、T2 ${money(pl.t2)} 賣晒 → 大約賺 <b class="g">${per(((pl.t1+pl.t2)/2/pl.entry-1)*100)}</b><br>即係「冒 $1 風險，搏 $${pl.rr.toFixed(1)}」。`
+    :`如果你用 ${CFG[market].cur}1,000 喺 ${money(pl.entry)} 買：跌到止蝕 ${money(pl.stop)} 就賣 → 最多蝕大約 <b class="r">${per(pl.riskP)}</b>。長線冇固定目標，升幾多都揸住，直到趨勢壞。`;
+  return `<details class="kid"><summary>🧒 新手解釋：為咩買／為咩持有／風險</summary>
+   <div class="big">一句講晒：${one}</div>
+   <h4>📊 而家發生緊咩事？</h4><ul>
+    <li>現價 ${money(p)}，今日 ${pct(chg)}。</li>
+    ${pos(a.s20,'20 日線','過去一個月')}${pos(a.s50,'50 日線','過去兩個半月')}${pos(a.s200,'200 日線','過去一年')}
+    <li>成交量係平時 <b>${a.volR.toFixed(1)} 倍</b>。${a.volR>1.3?'多過平時好多：有大戶或者好多人留意緊。':a.volR<0.8?'少過平時：冇乜人理。':'同平時差唔多。'}</li>
+    <li>ATR（平均每日上落）係 ${a.atrP.toFixed(1)}%：每 ${CFG[market].cur}1,000 平時一日會上落大約 ${per(a.atrP)}。${a.atrP>4?'偏大，波動高。':a.atrP<2?'偏細，比較穩。':'正常。'}</li></ul>
+   <h4 class="g">✅ 為咩買</h4><ul>${buy.map(x=>'<li>'+x+'</li>').join('')}</ul>
+   <h4>🤲 如果已經買咗，為咩繼續持有</h4><ul>${hold.map(x=>'<li>'+x+'</li>').join('')}</ul>
+   <h4 class="r">⚠️ 要小心（風險）</h4><ul>${risk.map(x=>'<li>'+x+'</li>').join('')}</ul>
+   <h4>💵 用 ${CFG[market].cur}1,000 舉例</h4>${ex}
+   <div class="small" style="margin-top:8px">以上全部由規則同數字計出，唔使 API key。唔係投資建議，只係幫你睇明個圖表。</div></details>`; }
 $('sumTabs').addEventListener('click',e=>{ const b=e.target.closest('.tab'); if(!b) return; sumH=b.dataset.h; LS.set('sumH',sumH); renderSummary(); });
 function renderAll(){ renderMarket(); renderCards(); renderSummary(); renderLog(); renderWl(); renderReview(); renderReal(); renderAlerts(); }
 
@@ -366,12 +428,22 @@ function showCouncil(el,res){const ch=res.chairman||{},cr=res.critique||{};
   el.innerHTML=`<div class="sum">${esc(res.summary)}</div>`+(res.advisors||[]).map(m=>`<div class="m"><b>${esc(m.lamp)} ${esc(m.name)}</b><ul>${(m.points||[]).map(p=>'<li>'+esc(p)+'</li>').join('')}</ul></div>`).join('')+
   `<div class="m"><b>交叉批評</b>最強：${esc(cr.strongest)}<br>最弱：${esc(cr.weakest)}<br>未解決：${esc((cr.clash||[]).join(' ⟷ '))}</div><div class="chair ${lampCls(ch.lamp)}"><b>主席 ${esc(ch.lamp)}</b><div>一小時內：${esc(ch.decision)}</div><div>主要風險：${esc(ch.risk)}</div><div>聽朝做：${esc(ch.action)}</div><div>被否決：${esc(ch.overruled)}</div></div>`;}
 function showSummary(el,s){ el.innerHTML=`<div class="sum">${esc(s.verdict||'')} ${esc(s.headline)}</div><div class="plan"><h4>點解值得留意</h4><ul>${(s.why||[]).map(x=>'<li>'+esc(x)+'</li>').join('')}</ul><h4>主要風險</h4><ul>${(s.risks||[]).map(x=>'<li>'+esc(x)+'</li>').join('')}</ul><h4>短線</h4>${esc(s.short)}<h4>中線</h4>${esc(s.mid)}<h4>長線</h4>${esc(s.long)}<h4>執行計劃</h4>${esc(s.plan)}</div>`; }
-function evidencePrompt(r,h){ const pl=h?plan(r,h):null; const hz=h?`\n\n用戶揀咗「${HZ[h].name}（${HZ[h].hold}）」。重點由呢個時間框講值唔值得，headline、verdict、plan 要跟呢個時間框。呢個時間框嘅規則結果：${pl.lamp} ${pl.word}；${pl.why}；買入區 ${pl.zone?money(pl.zone[0])+'–'+money(pl.zone[1]):'冇'}；止蝕 ${money(pl.stop)}；${pl.t1!=null?'T1 '+money(pl.t1)+'，T2 '+money(pl.t2):'冇固定目標，趨勢未壞就持有'}。`:''; return `${RULES}\n先用 web_search 搵 ${r.name}（${r.code}，${market==='HK'?'港股':'美股'}）最近兩星期嘅新聞（最多 3 次搜尋），然後為新手寫一頁「有論據支持」嘅總結。每一個論據都必須引用來源：技術論據引用下面嘅具體數字；新聞論據要俾新聞標題同網址。冇來源嘅論據唔准寫。同時要寫反方論據。搵唔到新聞就老實話冇。\n\n技術數據：\n${facts(r)}${hz}\n\n最後只回覆 JSON，冇 fence：{"headline":"一句（25字內）","verdict":"🟢|🟡|🔴","evidence":[{"claim":"25字內","source":"技術|新聞","title":"新聞標題或null","url":"網址或null"}],"counter":[{"claim":"","source":"技術|新聞","title":null,"url":null}],"risks":["最多3點"],"short":"","mid":"","long":"只可以用 200 日線同趨勢講","plan":"用買入區、止蝕、T1、T2，60字內","newsLamp":"🟢|🟡|🔴|⚪"}`; }
-function showEvidence(el,sm){ const src=e=>e.source==='新聞'&&e.url?` <a href="${esc(e.url)}" target="_blank" rel="noopener">${esc((e.title||'來源').slice(0,40))}</a>`:' <span class="small">技術數據</span>';
-  el.innerHTML=`<div class="sum">${esc(sm.verdict||'')} ${esc(sm.headline)}</div><div class="plan"><h4>✅ 支持論據</h4><ul>${(sm.evidence||[]).map(e=>'<li>'+esc(e.claim)+src(e)+'</li>').join('')||'<li>冇</li>'}</ul><h4>❌ 反方論據</h4><ul>${(sm.counter||[]).map(e=>'<li>'+esc(e.claim)+src(e)+'</li>').join('')||'<li>冇</li>'}</ul><h4>主要風險</h4><ul>${(sm.risks||[]).map(x=>'<li>'+esc(x)+'</li>').join('')}</ul><h4>短線</h4>${esc(sm.short)}<h4>中線</h4>${esc(sm.mid)}<h4>長線</h4>${esc(sm.long)}<h4>執行計劃</h4>${esc(sm.plan)}<div class="small" style="margin-top:8px">新聞 ${sm.newsLamp||'⚪'} · 所有價位嚟自規則引擎，Claude 只負責解釋。</div></div>`; }
+function evidencePrompt(r,h){ const pl=h?plan(r,h):null; const hz=h?`\n\n用戶揀咗「${HZ[h].name}（${HZ[h].hold}）」。重點由呢個時間框講值唔值得，headline、verdict、plan 要跟呢個時間框。呢個時間框嘅規則結果：${pl.lamp} ${pl.word}；${pl.why}；買入區 ${pl.zone?money(pl.zone[0])+'–'+money(pl.zone[1]):'冇'}；止蝕 ${money(pl.stop)}；${pl.t1!=null?'T1 '+money(pl.t1)+'，T2 '+money(pl.t2):'冇固定目標，趨勢未壞就持有'}。`:''; return `${RULES}\n先用 web_search 搵 ${r.name}（${r.code}，${market==='HK'?'港股':'美股'}）最近兩星期嘅新聞（最多 3 次搜尋），然後為新手寫一頁「有論據支持」嘅總結。每一個論據都必須引用來源：技術論據引用下面嘅具體數字；新聞論據要俾新聞標題同網址。冇來源嘅論據唔准寫。同時要寫反方論據。搵唔到新聞就老實話冇。\n\n技術數據：\n${facts(r)}${hz}\n\n讀者完全唔識股票：每句都要用日常用語解釋，例如「20 日線＝過去一個月平均價」、「止蝕＝跌到呢個價就認輸賣出，保住本金」。新聞要講「呢單新聞代表咩、點解會令股價升或跌」，唔好用術語。why_buy 係未買嘅人點解可以買；why_hold 係已經買咗嘅人點解可以繼續揸（或者點解唔應該再揸）；risks 要講具體會發生咩事令佢蝕錢。\n\n最後只回覆 JSON，冇 fence：{"headline":"一句（25字內）","verdict":"🟢|🟡|🔴","plain":"用三四句講晒呢隻股而家咩情況，好似同完全唔識股票嘅朋友講","why_buy":[{"point":"30字內，淺白","source":"技術|新聞","title":"新聞標題或null","url":"網址或null"}],"why_hold":[{"point":"30字內","source":"技術|新聞","title":null,"url":null}],"risks":[{"point":"30字內，講會點蝕錢","source":"技術|新聞","title":null,"url":null}],"news":[{"title":"","url":"","date":"","effect":"利好|利淡|中性","meaning":"呢單新聞代表咩，40字內，淺白"}],"short":"","mid":"","long":"只可以用 200 日線同趨勢講","plan":"用買入區、止蝕、T1、T2，60字內，淺白","glossary":[{"term":"今次用過嘅術語","explain":"20字內"}],"newsLamp":"🟢|🟡|🔴|⚪"}`; }
+window.showEvidence=showEvidence;function showEvidence(el,sm){ const src=e=>e&&e.source==='新聞'&&e.url?` <a href="${esc(e.url)}" target="_blank" rel="noopener">${esc((e.title||'來源').slice(0,40))}</a>`:' <span class="small">技術數據</span>';
+  const L=(arr)=>(arr||[]).map(e=>typeof e==='string'?'<li>'+esc(e)+'</li>':'<li>'+esc(e.point||e.claim||'')+src(e)+'</li>').join('')||'<li>冇</li>';
+  const news=(sm.news||[]).map(n=>{const cls=n.effect==='利好'?'good':n.effect==='利淡'?'bad':'';return `<div class="news"><span class="v ${cls}">${esc(n.effect||'—')}</span> ${esc(n.title||'')}<br>👉 ${esc(n.meaning||'')} ${n.url?`<a href="${esc(n.url)}" target="_blank" rel="noopener">來源</a>`:''} <span class="small">${esc(n.date||'')}</span></div>`}).join('');
+  el.innerHTML=`<div class="sum">${esc(sm.verdict||'')} ${esc(sm.headline)}</div><div class="plan">
+   ${sm.plain?`<h4>🗣️ 用人話講</h4>${esc(sm.plain)}`:''}
+   <h4>✅ 為咩買</h4><ul>${L(sm.why_buy||sm.evidence)}</ul>
+   <h4>🤲 為咩持有</h4><ul>${L(sm.why_hold)}</ul>
+   <h4>⚠️ 風險</h4><ul>${L(sm.risks)}${sm.counter?L(sm.counter):''}</ul>
+   ${news?`<h4>📰 新聞講咩</h4>${news}`:'<h4>📰 新聞</h4><span class="muted">搵唔到相關新聞。</span>'}
+   <h4>短線</h4>${esc(sm.short||'')}<h4>中線</h4>${esc(sm.mid||'')}<h4>長線</h4>${esc(sm.long||'')}<h4>執行計劃</h4>${esc(sm.plan||'')}
+   ${(sm.glossary||[]).length?`<h4>📖 今次用到嘅字</h4><ul>${sm.glossary.map(g=>'<li><b>'+esc(g.term)+'</b>：'+esc(g.explain)+'</li>').join('')}</ul>`:''}
+   <div class="small" style="margin-top:8px">新聞 ${sm.newsLamp||'⚪'} · 所有價位嚟自規則引擎，Claude 只負責解釋。</div></div>`; }
 async function genSummary(r,el,h){ el.style.display='block'; el.innerHTML='<div class="muted">搵緊新聞同寫緊論據…（30–60 秒）</div>'; await askJSON(el,evidencePrompt(r,h),sm=>showEvidence(el,sm),true); }
-function newsPromptS(r){ return `${RULES}\n用 web_search 搵 ${r.name}（${r.code}）最近兩星期嘅新聞（最多 3 次搜尋）。逐條判斷對股價利好、利淡定中性，一句理由，附標題同網址。唔好作新聞。只回覆 JSON，冇 fence：{"overall":"30字內","overallLamp":"🟢|🟡|🔴","items":[{"title":"","url":"","date":"","verdict":"利好|利淡|中性","reason":"20字內"}]}`; }
-async function newsFor(r,el){ el.innerHTML='<div class="muted">搵緊新聞…（20–40 秒）</div>'; await askJSON(el,newsPromptS(r),res=>{ const items=res.items||[]; el.innerHTML=`<div class="sum">${esc(res.overallLamp||'')} ${esc(res.overall)}</div>`+(items.length?items.map(n=>{const cls=n.verdict==='利好'?'good':n.verdict==='利淡'?'bad':'';return `<div class="news"><span class="v ${cls}">${esc(n.verdict||'—')}</span> ${esc(n.title)}<br><span class="muted">${esc(n.reason||'')}</span> ${n.url?`<a href="${esc(n.url)}" target="_blank" rel="noopener">來源</a>`:''} <span class="small">${esc(n.date||'')}</span></div>`}).join(''):'<div class="muted">搵唔到相關新聞。</div>'); },true); }
+function newsPromptS(r){ return `${RULES}\n用 web_search 搵 ${r.name}（${r.code}）最近兩星期嘅新聞（最多 3 次搜尋）。讀者完全唔識股票。逐條判斷對股價利好、利淡定中性，用日常用語解釋「呢單新聞代表咩」同「點解會令股價升或跌」，唔好用術語。附標題同網址。唔好作新聞。最後畀新手一句「聽完新聞，應該點諗」。只回覆 JSON，冇 fence：{"overall":"30字內","overallLamp":"🟢|🟡|🔴","advice":"40字內，淺白","items":[{"title":"","url":"","date":"","verdict":"利好|利淡|中性","meaning":"呢單新聞代表咩，30字內","reason":"點解會令股價升或跌，30字內"}]}`; }
+async function newsFor(r,el){ el.innerHTML='<div class="muted">搵緊新聞…（20–40 秒）</div>'; await askJSON(el,newsPromptS(r),res=>{ const items=res.items||[]; el.innerHTML=`<div class="sum">${esc(res.overallLamp||'')} ${esc(res.overall)}</div>${res.advice?'<div class="kid">🧒 '+esc(res.advice)+'</div>':''}`+(items.length?items.map(n=>{const cls=n.verdict==='利好'?'good':n.verdict==='利淡'?'bad':'';return `<div class="news"><span class="v ${cls}">${esc(n.verdict||'—')}</span> ${esc(n.title)}<br>${n.meaning?'👉 '+esc(n.meaning)+'<br>':''}<span class="muted">${esc(n.reason||'')}</span> ${n.url?`<a href="${esc(n.url)}" target="_blank" rel="noopener">來源</a>`:''} <span class="small">${esc(n.date||'')}</span></div>`}).join(''):'<div class="muted">搵唔到相關新聞。</div>'); },true); }
 document.addEventListener('click',async ev=>{
   const b=ev.target.closest('button'); if(!b) return; const rows=state[market].rows;
   if(b.dataset.council!=null){ const i=+b.dataset.council,r=rows[i],el=sink('council',r); if(el.style.display==='block'){el.style.display='none';return} el.style.display='block'; el.innerHTML='<div class="muted">開緊會…（10–40 秒）</div>'; askJSON(el,councilPrompt(r),res=>showCouncil(el,res)); }
