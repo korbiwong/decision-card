@@ -10,6 +10,7 @@ concurrency: { group: scan-writes, cancel-in-progress: false }
 jobs:
   scan:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
