@@ -9,7 +9,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon.png">
 <meta name="theme-color" content="#14213d">
-<meta name="app-version" content="2026-10-08a">
+<meta name="app-version" content="2026-10-14a">
 <title>決策卡 · 港股 · 美股</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -79,7 +79,7 @@ table.rv{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}table
 </head>
 <body><div class="wrap">
 <div style="display:flex;align-items:center;gap:10px"><svg width="40" height="40" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#14213d"/><polyline points="10,44 22,34 30,38 42,24 54,16" fill="none" stroke="#3fbf83" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><polyline points="44,16 54,16 54,26" fill="none" stroke="#3fbf83" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><rect x="10" y="50" width="44" height="4" rx="2" fill="#5f83ff"/></svg><h1>決策卡</h1></div>
-<div class="sub">開咗就自動掃。先計輸幾多，再諗賺幾多。 <span class="small">v2026-10-08a</span></div>
+<div class="sub">開咗就自動掃。先計輸幾多，再諗賺幾多。 <span class="small">v2026-10-14a</span></div>
 
 <div class="mtabs"><button class="mtab on" data-m="HK">🇭🇰 港股</button><button class="mtab" data-m="US">🇺🇸 美股</button></div>
 
@@ -98,7 +98,9 @@ table.rv{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}table
 </div>
 
 <div class="view" id="v-summary">
-  <div class="panel"><b>今日最值得睇嘅幾隻</b><div class="muted">按 R:R 同趨勢排。每隻有理想買入區、分段賣出價、止蝕、短中長線同新聞分析。撳「總結＋論據」：先搵新聞，再由 Claude 寫支持論據、反方論據，每條註明來源。</div></div>
+  <div class="panel"><b>今日最值得睇嘅幾隻</b><div class="muted">揀你嘅持有時間，每個時間有自己嘅排名、買入區、止蝕同目標。撳「總結＋論據」：先搵新聞，再由 Claude 寫支持論據、反方論據，每條註明來源。</div></div>
+  <div class="tabs" id="sumTabs"><button class="tab" data-h="day">⚡ 即日</button><button class="tab" data-h="short">短線</button><button class="tab" data-h="mid">中線</button><button class="tab" data-h="long">長線</button></div>
+  <div class="muted" id="sumNote" style="margin-top:8px"></div>
   <div class="grid" id="sumcards"></div>
 </div>
 
@@ -282,16 +284,49 @@ function zoneHTML(a){ const z=a.zone; return `<div class="zone">
    <div class="z stop">止蝕（買咗就守）<b>${money(a.stop)}</b>−${a.riskP.toFixed(1)}%</div>
    <div class="z sell">T1 先走一半<b>${money(a.t1)}</b>+${((a.t1-a.entry)/a.entry*100).toFixed(1)}%</div>
    <div class="z sell">T2 目標<b>${money(a.t2)}</b>+${a.rewP.toFixed(1)}%</div></div>`; }
-function renderSummary(){ const rows=state[market].rows; if(!rows.length){$('sumcards').innerHTML='<div class="panel muted">等緊報價…</div>';return}
-  const top=rows.slice().sort((x,y)=>score(y)-score(x)).slice(0,6);
-  $('sumcards').innerHTML=top.map(r=>{const a=r.a,i=rows.indexOf(r);return `<div class="card ${lampCls(a.lamp)}">
-    <div class="row"><div class="stock">${esc(r.code)} ${esc(r.name)}<small>${money(a.entry)} ${pct(a.chg)} · 數據 ${esc(fmtTime(r.liveAt)||a.date)}</small></div><div class="lamp"><div class="e">${a.lamp}</div><div class="w">${esc(a.word)}</div></div></div>
-    <div class="tf"><span>短線 ${a.lamp}</span><span>中線 ${a.tf.mid} ${a.trend==='up'?'向上':a.trend==='down'?'向下':'橫行'}</span><span>長線 ${a.tf.long} ${a.s200?(a.entry>a.s200?'200 日線上':'200 日線下'):'數據不足'}</span></div>
-    ${zoneHTML(a)}
-    ${dayLine(r)}
-    <div class="why"><b>點解？</b> ${esc(a.why)}</div>
-    <div class="acts"><button class="btn" data-gen="${i}">✍️ 總結＋論據</button><button class="btn sec" data-news="${i}">📰 新聞分析</button><button class="btn sec" data-save="${i}">記低</button></div>
-    <div class="sumbox" ${panelAttr('sum',r)}>${panelHtml('sum',r)}</div><div class="newsbox" ${panelAttr('news',r)}>${panelHtml('news',r)}</div></div>`}).join(''); }
+let sumH=LS.get('sumH','short');
+const HZ={day:{name:'⚡ 即日',hold:'即日買即日賣',note:'用 5 分鐘 K 線、VWAP 同開市區間。收市前一定平倉。數據延遲，入場以 Futubull 報價為準。'},
+  short:{name:'短線',hold:'幾日至幾星期',note:'用 20 日線、突破同回調。止蝕跟 10 日低位／ATR，目標 T1 先走一半、T2 全走。'},
+  mid:{name:'中線',hold:'1 至 3 個月',note:'用 50 日線。趨勢向上時回到 50 日線附近先買，止蝕喺 50 日線下 1.5 個 ATR，目標係止蝕距離嘅 2 倍同 3 倍。'},
+  long:{name:'長線',hold:'半年以上',note:'用 200 日線判斷長期趨勢。止蝕係 200 日線下 5%，冇固定目標，趨勢未壞就持有。只睇價格趨勢，冇計基本面。'}};
+function plan(r,h){ const a=r.a, p=r.live?r.live.p:a.entry, atr=a.atrP/100*p, O={'🟢':0,'🟡':1,'🔴':2};
+  const mk=(o)=>{ const risk=o.entry-o.stop; o.riskP=risk/o.entry*100; o.rewP=o.t2?(o.t2-o.entry)/o.entry*100:null; o.rr=o.t2&&risk>0?(o.t2-o.entry)/risk:null; o.ord=O[o.lamp]; return o; };
+  if(h==='day'){ const d=dayFor(r); if(!d) return null; const z=d.word==='突破開市區間'?[d.orbH,d.orbH*1.005]:d.word==='回試 VWAP'?[d.vwap*0.998,d.vwap*1.004]:null;
+    return mk({lamp:d.lamp,word:d.word,why:d.why,entry:d.entry,zone:z,zoneLbl:z?(d.word==='突破開市區間'?'突破位':'VWAP 附近'):'未有入場位',stop:d.stop,t1:d.entry+(d.target-d.entry)/2,t2:d.target,extra:d,sortKey:-(d.rr||0)}); }
+  if(h==='short') return mk({lamp:a.lamp,word:a.word,why:a.why,entry:a.entry,zone:a.zone,zoneLbl:a.setup==='pullback'||a.setup==='uptrend'?'20 日線附近':a.setup==='breakout'?'突破位':a.setup==='over'?'等回調到呢度':'趨勢向下',stop:a.stop,t1:a.t1,t2:a.t2,sortKey:-score(r)});
+  if(h==='mid'){ if(!a.s50) return null; const s50=a.s50, up=p>s50&&a.s20>s50, down=p<s50&&a.s20<s50; let lamp,word,why;
+    if(down){lamp='🔴';word='中線向下';why='股價同 20 日線都喺 50 日線之下，中線趨勢向下。';}
+    else if(up&&p<=s50*1.06){lamp='🟢';word='近 50 日線';why=`中線向上，股價離 50 日線 ${((p/s50-1)*100).toFixed(1)}%，接近支持位。`;}
+    else if(up){lamp='🟡';word='等回 50 日線';why=`中線向上，但離 50 日線已經 ${((p/s50-1)*100).toFixed(1)}%，追入止蝕太遠。`;}
+    else {lamp='🟡';word='方向未清';why='股價同 20 日線喺 50 日線兩邊，等方向清楚。';}
+    if(lamp==='🟢'&&a.s200&&p<a.s200&&s50<a.s200){lamp='🟡';word='長線仍向下';why+=' 但長線（200 日線）仍然向下，逆大勢。';}
+    const stop=s50-1.5*atr, R=p-stop; return mk({lamp,word,why,entry:p,zone:down?null:[s50*0.99,s50*1.03],zoneLbl:'50 日線附近',stop,t1:p+2*R,t2:p+3*R,sortKey:Math.abs(p/s50-1.03)}); }
+  if(h==='long'){ if(!a.s200) return null; const s200=a.s200, s50=a.s50||a.s20, up=p>s200&&s50>s200, down=p<s200&&s50<s200; let lamp,word,why;
+    if(down){lamp='🔴';word='長線向下';why='股價同 50 日線都喺 200 日線之下，長期趨勢向下。';}
+    else if(up&&p<=s200*1.15){lamp='🟢';word='長期向上';why=`股價喺 200 日線上 ${((p/s200-1)*100).toFixed(1)}%，50 日線亦喺 200 日線上，長期趨勢健康又未升得太遠。`;}
+    else if(up){lamp='🟡';word='升得太遠';why=`長期向上，但已經高過 200 日線 ${((p/s200-1)*100).toFixed(1)}%，宜分段買或者等回調。`;}
+    else {lamp='🟡';word='轉勢中';why='股價同 50 日線喺 200 日線兩邊，長期趨勢未確認。';}
+    const stop=s200*0.95; return mk({lamp,word,why,entry:p,zone:down?null:(s50>s200?[s50*0.97,s50*1.03]:[s200,s200*1.03]),zoneLbl:s50>s200?'50 日線附近（長線分段買）':'200 日線附近',stop,t1:null,t2:null,sortKey:p/s200}); }
+  return null; }
+function planZone(pl){ const pc=x=>((x-pl.entry)/pl.entry*100).toFixed(1); return `<div class="zone">
+   <div class="z buy">理想買入區<b>${pl.zone?money(pl.zone[0])+' – '+money(pl.zone[1]):'唔買'}</b>${esc(pl.zoneLbl)}</div>
+   <div class="z stop">止蝕<b>${money(pl.stop)}</b>−${pl.riskP.toFixed(1)}%</div>
+   ${pl.t1!=null?`<div class="z sell">T1 先走一半<b>${money(pl.t1)}</b>+${pc(pl.t1)}%</div><div class="z sell">T2 目標<b>${money(pl.t2)}</b>+${pc(pl.t2)}%　R:R ${pl.rr.toFixed(1)}</div>`
+     :`<div class="z sell" style="grid-column:1/-1">冇固定目標<b>持有</b>每月檢查一次；收市跌穿止蝕先走</div>`}</div>`; }
+function renderSummary(){ const rows=state[market].rows; document.querySelectorAll('#sumTabs .tab').forEach(t=>t.classList.toggle('on',t.dataset.h===sumH));
+  $('sumNote').innerHTML=`<b>${HZ[sumH].name}（${HZ[sumH].hold}）</b>：${HZ[sumH].note}`;
+  if(!rows.length){$('sumcards').innerHTML='<div class="panel muted">等緊報價…</div>';return}
+  const list=rows.map(r=>({r,pl:plan(r,sumH)})).filter(x=>x.pl&&x.pl.lamp!=='🔴').sort((x,y)=>x.pl.ord-y.pl.ord||x.pl.sortKey-y.pl.sortKey).slice(0,8);
+  if(!list.length){ $('sumcards').innerHTML=`<div class="panel muted">${sumH==='day'?'而家冇即日數據（未開市，或者報價未更新）。':'呢個時間框冇值得睇嘅股（全部 🔴）。唔做都係一個決定。'}</div>`; return; }
+  $('sumcards').innerHTML=list.map(({r,pl})=>{const a=r.a,i=rows.indexOf(r);return `<div class="card ${lampCls(pl.lamp)}">
+    <div class="row"><div class="stock">${esc(r.code)} ${esc(r.name)}<small>${money(r.live?r.live.p:a.entry)} ${pct(r.live?r.live.chg:a.chg)} · ${HZ[sumH].name}（${HZ[sumH].hold}）</small></div><div class="lamp"><div class="e">${pl.lamp}</div><div class="w">${esc(pl.word)}</div></div></div>
+    <div class="tf">${['day','short','mid','long'].map(h=>{const q=plan(r,h);return `<span${h===sumH?' style="outline:2px solid var(--act)"':''}>${HZ[h].name.replace('⚡ ','')} ${q?q.lamp:'⚪'}</span>`}).join('')}</div>
+    ${planZone(pl)}
+    ${sumH==='day'?`<div class="small">VWAP ${money(pl.extra.vwap)} · 開市區間 ${money(pl.extra.orbL)}–${money(pl.extra.orbH)} · 成交 ${pl.extra.volR.toFixed(1)}× · 數據 ${esc(fmtTime(pl.extra.at))}</div>`:''}
+    <div class="why"><b>點解？</b> ${esc(pl.why)}</div>
+    <div class="acts"><button class="btn" data-gen="${i}">✍️ 總結＋論據</button><button class="btn sec" data-news="${i}">📰 新聞分析</button><button class="btn sec" data-saveplan="${i}">記低</button></div>
+    <div class="sumbox" ${panelAttr('sum-'+sumH,r)}>${panelHtml('sum-'+sumH,r)}</div><div class="newsbox" ${panelAttr('news',r)}>${panelHtml('news',r)}</div></div>`}).join(''); }
+$('sumTabs').addEventListener('click',e=>{ const b=e.target.closest('.tab'); if(!b) return; sumH=b.dataset.h; LS.set('sumH',sumH); renderSummary(); });
 function renderAll(){ renderMarket(); renderCards(); renderSummary(); renderLog(); renderWl(); renderReview(); renderReal(); renderAlerts(); }
 
 /* ---------- Claude via Anthropic API (optional key) ---------- */
@@ -331,17 +366,20 @@ function showCouncil(el,res){const ch=res.chairman||{},cr=res.critique||{};
   el.innerHTML=`<div class="sum">${esc(res.summary)}</div>`+(res.advisors||[]).map(m=>`<div class="m"><b>${esc(m.lamp)} ${esc(m.name)}</b><ul>${(m.points||[]).map(p=>'<li>'+esc(p)+'</li>').join('')}</ul></div>`).join('')+
   `<div class="m"><b>交叉批評</b>最強：${esc(cr.strongest)}<br>最弱：${esc(cr.weakest)}<br>未解決：${esc((cr.clash||[]).join(' ⟷ '))}</div><div class="chair ${lampCls(ch.lamp)}"><b>主席 ${esc(ch.lamp)}</b><div>一小時內：${esc(ch.decision)}</div><div>主要風險：${esc(ch.risk)}</div><div>聽朝做：${esc(ch.action)}</div><div>被否決：${esc(ch.overruled)}</div></div>`;}
 function showSummary(el,s){ el.innerHTML=`<div class="sum">${esc(s.verdict||'')} ${esc(s.headline)}</div><div class="plan"><h4>點解值得留意</h4><ul>${(s.why||[]).map(x=>'<li>'+esc(x)+'</li>').join('')}</ul><h4>主要風險</h4><ul>${(s.risks||[]).map(x=>'<li>'+esc(x)+'</li>').join('')}</ul><h4>短線</h4>${esc(s.short)}<h4>中線</h4>${esc(s.mid)}<h4>長線</h4>${esc(s.long)}<h4>執行計劃</h4>${esc(s.plan)}</div>`; }
-function evidencePrompt(r){ return `${RULES}\n先用 web_search 搵 ${r.name}（${r.code}，${market==='HK'?'港股':'美股'}）最近兩星期嘅新聞（最多 3 次搜尋），然後為新手寫一頁「有論據支持」嘅總結。每一個論據都必須引用來源：技術論據引用下面嘅具體數字；新聞論據要俾新聞標題同網址。冇來源嘅論據唔准寫。同時要寫反方論據。搵唔到新聞就老實話冇。\n\n技術數據：\n${facts(r)}\n\n最後只回覆 JSON，冇 fence：{"headline":"一句（25字內）","verdict":"🟢|🟡|🔴","evidence":[{"claim":"25字內","source":"技術|新聞","title":"新聞標題或null","url":"網址或null"}],"counter":[{"claim":"","source":"技術|新聞","title":null,"url":null}],"risks":["最多3點"],"short":"","mid":"","long":"只可以用 200 日線同趨勢講","plan":"用買入區、止蝕、T1、T2，60字內","newsLamp":"🟢|🟡|🔴|⚪"}`; }
+function evidencePrompt(r,h){ const pl=h?plan(r,h):null; const hz=h?`\n\n用戶揀咗「${HZ[h].name}（${HZ[h].hold}）」。重點由呢個時間框講值唔值得，headline、verdict、plan 要跟呢個時間框。呢個時間框嘅規則結果：${pl.lamp} ${pl.word}；${pl.why}；買入區 ${pl.zone?money(pl.zone[0])+'–'+money(pl.zone[1]):'冇'}；止蝕 ${money(pl.stop)}；${pl.t1!=null?'T1 '+money(pl.t1)+'，T2 '+money(pl.t2):'冇固定目標，趨勢未壞就持有'}。`:''; return `${RULES}\n先用 web_search 搵 ${r.name}（${r.code}，${market==='HK'?'港股':'美股'}）最近兩星期嘅新聞（最多 3 次搜尋），然後為新手寫一頁「有論據支持」嘅總結。每一個論據都必須引用來源：技術論據引用下面嘅具體數字；新聞論據要俾新聞標題同網址。冇來源嘅論據唔准寫。同時要寫反方論據。搵唔到新聞就老實話冇。\n\n技術數據：\n${facts(r)}${hz}\n\n最後只回覆 JSON，冇 fence：{"headline":"一句（25字內）","verdict":"🟢|🟡|🔴","evidence":[{"claim":"25字內","source":"技術|新聞","title":"新聞標題或null","url":"網址或null"}],"counter":[{"claim":"","source":"技術|新聞","title":null,"url":null}],"risks":["最多3點"],"short":"","mid":"","long":"只可以用 200 日線同趨勢講","plan":"用買入區、止蝕、T1、T2，60字內","newsLamp":"🟢|🟡|🔴|⚪"}`; }
 function showEvidence(el,sm){ const src=e=>e.source==='新聞'&&e.url?` <a href="${esc(e.url)}" target="_blank" rel="noopener">${esc((e.title||'來源').slice(0,40))}</a>`:' <span class="small">技術數據</span>';
   el.innerHTML=`<div class="sum">${esc(sm.verdict||'')} ${esc(sm.headline)}</div><div class="plan"><h4>✅ 支持論據</h4><ul>${(sm.evidence||[]).map(e=>'<li>'+esc(e.claim)+src(e)+'</li>').join('')||'<li>冇</li>'}</ul><h4>❌ 反方論據</h4><ul>${(sm.counter||[]).map(e=>'<li>'+esc(e.claim)+src(e)+'</li>').join('')||'<li>冇</li>'}</ul><h4>主要風險</h4><ul>${(sm.risks||[]).map(x=>'<li>'+esc(x)+'</li>').join('')}</ul><h4>短線</h4>${esc(sm.short)}<h4>中線</h4>${esc(sm.mid)}<h4>長線</h4>${esc(sm.long)}<h4>執行計劃</h4>${esc(sm.plan)}<div class="small" style="margin-top:8px">新聞 ${sm.newsLamp||'⚪'} · 所有價位嚟自規則引擎，Claude 只負責解釋。</div></div>`; }
-async function genSummary(r,el){ el.style.display='block'; el.innerHTML='<div class="muted">搵緊新聞同寫緊論據…（30–60 秒）</div>'; await askJSON(el,evidencePrompt(r),sm=>showEvidence(el,sm),true); }
+async function genSummary(r,el,h){ el.style.display='block'; el.innerHTML='<div class="muted">搵緊新聞同寫緊論據…（30–60 秒）</div>'; await askJSON(el,evidencePrompt(r,h),sm=>showEvidence(el,sm),true); }
 function newsPromptS(r){ return `${RULES}\n用 web_search 搵 ${r.name}（${r.code}）最近兩星期嘅新聞（最多 3 次搜尋）。逐條判斷對股價利好、利淡定中性，一句理由，附標題同網址。唔好作新聞。只回覆 JSON，冇 fence：{"overall":"30字內","overallLamp":"🟢|🟡|🔴","items":[{"title":"","url":"","date":"","verdict":"利好|利淡|中性","reason":"20字內"}]}`; }
 async function newsFor(r,el){ el.innerHTML='<div class="muted">搵緊新聞…（20–40 秒）</div>'; await askJSON(el,newsPromptS(r),res=>{ const items=res.items||[]; el.innerHTML=`<div class="sum">${esc(res.overallLamp||'')} ${esc(res.overall)}</div>`+(items.length?items.map(n=>{const cls=n.verdict==='利好'?'good':n.verdict==='利淡'?'bad':'';return `<div class="news"><span class="v ${cls}">${esc(n.verdict||'—')}</span> ${esc(n.title)}<br><span class="muted">${esc(n.reason||'')}</span> ${n.url?`<a href="${esc(n.url)}" target="_blank" rel="noopener">來源</a>`:''} <span class="small">${esc(n.date||'')}</span></div>`}).join(''):'<div class="muted">搵唔到相關新聞。</div>'); },true); }
 document.addEventListener('click',async ev=>{
   const b=ev.target.closest('button'); if(!b) return; const rows=state[market].rows;
   if(b.dataset.council!=null){ const i=+b.dataset.council,r=rows[i],el=sink('council',r); if(el.style.display==='block'){el.style.display='none';return} el.style.display='block'; el.innerHTML='<div class="muted">開緊會…（10–40 秒）</div>'; askJSON(el,councilPrompt(r),res=>showCouncil(el,res)); }
   if(b.dataset.sum!=null){ view='summary'; setView(); window.scrollTo({top:$('v-summary').offsetTop-10,behavior:'smooth'}); }
-  if(b.dataset.gen!=null){ const i=+b.dataset.gen,r=rows[i],el=sink('sum',r); genSummary(r,el); }
+  if(b.dataset.gen!=null){ const i=+b.dataset.gen,r=rows[i],el=sink('sum-'+sumH,r); genSummary(r,el,sumH); }
+  if(b.dataset.saveplan!=null){ const r=rows[+b.dataset.saveplan],pl=plan(r,sumH); if(!pl) return; const log=LS.get('pt_log',[]); const tgt=pl.t2||pl.entry*1.2;
+    log.unshift({id:Date.now(),m:market,code:r.code,name:r.name+'（'+HZ[sumH].name+'）',entry:pl.entry,target:tgt,stop:pl.stop,rr:pl.rr||((tgt-pl.entry)/(pl.entry-pl.stop)),riskP:pl.riskP,rewP:(tgt-pl.entry)/pl.entry*100,lamp:pl.lamp,date:r.a.date,status:'open'});
+    LS.set('pt_log',log); renderLog(); const orig=b.textContent; b.textContent='已記低'; setTimeout(()=>b.textContent=orig,1200); }
   if(b.dataset.news!=null){ const i=+b.dataset.news,r=rows[i],el=sink('news',r); if(el.style.display==='block'&&el.innerHTML){el.style.display='none';return} el.style.display='block'; newsFor(r,el); }
   if(b.dataset.save!=null){ const r=rows[+b.dataset.save],a=r.a,log=LS.get('pt_log',[]);
     log.unshift({id:Date.now(),m:market,code:r.code,name:r.name,entry:a.entry,target:a.target,stop:a.stop,rr:a.rr,riskP:a.riskP,rewP:a.rewP,lamp:a.lamp,date:a.date,status:'open'});
