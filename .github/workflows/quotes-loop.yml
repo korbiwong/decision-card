@@ -1,0 +1,51 @@
+name: quotes-loop
+# GitHub 嘅 cron 經常遲幾十分鐘甚至唔行。呢個 workflow 一開就喺交易時段入面自己每 10 分鐘行一次 quotes.py，
+# 唔再靠每次 cron 準時。一個 job 最長 6 小時，所以每個市場有兩三個開始時間做後備；
+# 已經有一個喺度行緊，後嚟嗰個會排隊，等前一個收工先開始，見已收市就即刻完。
+on:
+  schedule:
+    - cron: "25 1 * * 1-5"    # 港股開市前（09:25 HKT）
+    - cron: "0 6 * * 1-5"     # 港股下晝後備
+    - cron: "25 13 * * 1-5"   # 美股開市前（夏令時間 09:25 ET）
+    - cron: "25 14 * * 1-5"   # 美股開市前（冬令時間 09:25 ET）
+    - cron: "0 18 * * 1-5"    # 美股下晝後備
+    - cron: "0 19 * * 1-5"
+  workflow_dispatch:
+permissions: { contents: write }
+concurrency: { group: quotes-loop, cancel-in-progress: false }
+jobs:
+  loop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install yfinance requests pandas
+      - env: { NTFY_TOPIC: "${{ secrets.NTFY_TOPIC }}", MAIL_TO: "${{ secrets.MAIL_TO }}", GMAIL_USER: "${{ secrets.GMAIL_USER }}", GMAIL_APP_PASSWORD: "${{ secrets.GMAIL_APP_PASSWORD }}" }
+        run: |
+          git config user.name quotes; git config user.email quotes@users.noreply.github.com
+          # 交易時段（連開市前 10 分鐘、收市後 15 分鐘），返 US / HK / none
+          session() {
+            local d t
+            d=$(TZ=America/New_York date +%u); t=$(TZ=America/New_York date +%H%M)
+            if (( d <= 5 && 10#$t >= 920 && 10#$t < 1615 )); then echo US; return; fi
+            d=$(TZ=Asia/Hong_Kong date +%u); t=$(TZ=Asia/Hong_Kong date +%H%M)
+            if (( d <= 5 && 10#$t >= 920 && 10#$t < 1625 )); then echo HK; return; fi
+            echo none
+          }
+          start=$(date +%s)
+          while :; do
+            s=$(session)
+            if [ "$s" = none ]; then echo "已收市，完"; break; fi
+            if (( $(date +%s) - start > 340*60 )); then echo "就到 6 小時上限，交俾下一個"; break; fi
+            echo "== $(date -u +%H:%M) UTC · $s =="
+            git pull --rebase -X theirs -q || true   # 攞你最新嘅 alerts / trades / watch
+            python quotes.py || echo "quotes.py 出錯，下次再試"
+            git add quotes.json intraday.json state.json
+            if ! git diff --cached --quiet; then
+              git commit -q -m "quotes"
+              for i in 1 2 3 4 5; do git pull --rebase -X theirs -q && git push -q && break; sleep 10; done
+            fi
+            sleep 600
+          done

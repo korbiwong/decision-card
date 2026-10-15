@@ -1,8 +1,6 @@
 name: quotes
+# 定時更新已經交俾 quotes-loop.yml；呢個只留低手動行一次用。
 on:
-  schedule:
-    - cron: "*/10 1-8 * * 1-5"
-    - cron: "*/15 13-20 * * 1-5"
   workflow_dispatch:
 permissions: { contents: write }
 concurrency: { group: quotes-writes, cancel-in-progress: false }
