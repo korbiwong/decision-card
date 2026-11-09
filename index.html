@@ -96,7 +96,7 @@ table.rv{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}table
 </head>
 <body><div class="wrap">
 <div style="display:flex;align-items:center;gap:10px"><svg width="40" height="40" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#14213d"/><polyline points="10,44 22,34 30,38 42,24 54,16" fill="none" stroke="#3fbf83" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><polyline points="44,16 54,16 54,26" fill="none" stroke="#3fbf83" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><rect x="10" y="50" width="44" height="4" rx="2" fill="#5f83ff"/></svg><h1>決策卡</h1></div>
-<div class="sub">開咗就自動掃。先計輸幾多，再諗賺幾多。 <span class="small">v2026-10-15c</span> <button class="btn sec sm" id="langBtn" style="padding:2px 10px;margin-left:6px">EN</button></div>
+<div class="sub">開咗就自動掃。先計輸幾多，再諗賺幾多。 <span class="small">v2026-11-10a</span> <button class="btn sec sm" id="langBtn" style="padding:2px 10px;margin-left:6px">EN</button></div>
 
 <div class="mtabs"><button class="mtab on" data-m="HK">🇭🇰 港股</button><button class="mtab" data-m="US">🇺🇸 美股</button></div>
 
@@ -717,7 +717,7 @@ const RULES='你只可以解釋已計好嘅數字，唔可以自己作任何價�
 function councilPrompt(r){return `你係一個五人委員會。${RULES}\n審一單 paper trade：\n${facts(r)}\n五位顧問各自獨立講，唔可以提到對方：1 反向懷疑論者（寫失敗驗屍報告）2 第一性原理工程師（真正 load-bearing 嘅事實）3 擴張主義者（無限資源點做，最後一樣帶返現實）4 局外人（唔識股票嘅人邊度唔明）5 執行者（聽朝一件具體會產生證據嘅事）。每位 2 至 3 點，每點最多 20 字，動詞行先，每位畀燈 🟢🟡🔴。然後交叉批評（只講「一位成員」），然後主席裁決，可以判買家輸。\n只回覆 JSON，冇 fence：{"summary":"一句30字內","advisors":[{"name":"","lamp":"","points":[""]}],"critique":{"strongest":"","weakest":"","clash":["",""]},"chairman":{"lamp":"","decision":"","risk":"","action":"","overruled":""}}`;}
 function summaryPrompt(r){return `${RULES}\n為新手寫一頁總結：\n${facts(r)}\n只回覆 JSON，冇 fence：{"headline":"一句講晒值唔值得睇（25字內）","why":["點解值得留意，3點，每點20字內"],"risks":["主要風險，3點，每點20字內"],"short":"短線（幾日至幾星期）建議一句","mid":"中線（1至3個月）建議一句","long":"長線（半年以上）建議一句，只可以用 200 日線同趨勢講，唔好作基本面","plan":"用買入區、止蝕、T1、T2 寫一個具體執行計劃，60字內","verdict":"🟢|🟡|🔴"}`;}
 function newsPrompt(r,items){return `${RULES}\n以下係關於 ${r.code} ${r.name} 嘅最近新聞（標題＋摘錄）。逐條判斷對股價係利好、利淡定中性，一句理由。唔好作新聞，冇資料就話冇。\n${items.map((n,i)=>`[${i}] ${n.title}\n${(n.excerpts||[]).join(' ').slice(0,400)}\n日期：${n.publish_date||'?'}`).join('\n\n')}\n只回覆 JSON，冇 fence：{"overall":"整體一句（30字內）","overallLamp":"🟢|🟡|🔴","items":[{"i":0,"verdict":"利好|利淡|中性","reason":"20字內"}]}`;}
-async function askJSON(el,prompt,render,useSearch){ const base=(el.textContent||'生成緊…').replace(/（[^）]*秒）/,''), t0=Date.now(); let st='', res, err;
+async function askJSON(el,prompt,render,useSearch){ const base=(el.textContent||String(el.innerHTML||'').replace(/<[^>]*>/g,'')||'生成緊…').replace(/（[^）]*秒）/,''), t0=Date.now(); let st='', res, err;
   const draw=()=>{ el.innerHTML='<div class="muted">'+esc(base)+'<br>'+esc(st||'等緊 Claude…')+' · '+Math.round((Date.now()-t0)/1000)+' 秒</div>'; }; draw(); const tk=setInterval(draw,1000);
   try{ res=await claudeJSON(prompt,useSearch,m=>{ st=progText(m); }); }catch(e){ err=e; } clearInterval(tk);
   try{ if(err) throw err; render(res); }
