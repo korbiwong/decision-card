@@ -9,7 +9,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon.png">
 <meta name="theme-color" content="#14213d">
-<meta name="app-version" content="2026-11-10b">
+<meta name="app-version" content="2026-11-10c">
 <title>決策卡 · 港股 · 美股</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -96,7 +96,7 @@ table.rv{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}table
 </head>
 <body><div class="wrap">
 <div style="display:flex;align-items:center;gap:10px"><svg width="40" height="40" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#14213d"/><polyline points="10,44 22,34 30,38 42,24 54,16" fill="none" stroke="#3fbf83" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><polyline points="44,16 54,16 54,26" fill="none" stroke="#3fbf83" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><rect x="10" y="50" width="44" height="4" rx="2" fill="#5f83ff"/></svg><h1>決策卡</h1></div>
-<div class="sub">開咗就自動掃。先計輸幾多，再諗賺幾多。 <span class="small">v2026-11-10b</span> <button class="btn sec sm" id="langBtn" style="padding:2px 10px;margin-left:6px">EN</button></div>
+<div class="sub">開咗就自動掃。先計輸幾多，再諗賺幾多。 <span class="small">v2026-11-10c</span> <button class="btn sec sm" id="langBtn" style="padding:2px 10px;margin-left:6px">EN</button></div>
 
 <div class="mtabs"><button class="mtab on" data-m="HK">🇭🇰 港股</button><button class="mtab" data-m="US">🇺🇸 美股</button></div>
 
@@ -249,6 +249,7 @@ document.getElementById('langBtn').onclick=()=>{ const next=LANG==='en'?'zh':'en
 (function(){
 const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const LS={get:(k,d)=>{try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const fx1=n=>Number.isFinite(n)?n.toFixed(1):'—';
 const pct=n=>Number.isFinite(n)?(n>=0?'+':'')+n.toFixed(1)+'%':'—', lampCls=l=>l==='🟢'?'go':l==='🔴'?'stop':'wait';
 const HK={'0700':'騰訊','9988':'阿里巴巴','3690':'美團','1810':'小米','9618':'京東','9888':'百度','0981':'中芯國際','1211':'比亞迪','2318':'中國平安','0005':'滙豐','0939':'建設銀行','1398':'工商銀行','3988':'中國銀行','0388':'港交所','0001':'長和','0016':'新鴻基地產','0823':'領展','1299':'友邦','2020':'安踏','2382':'舜宇光學','0175':'吉利','9999':'網易','1024':'快手','0027':'銀河娛樂','1928':'金沙中國','0883':'中海油','0857':'中石油','0386':'中石化','1088':'中國神華','0669':'創科實業','2313':'申洲國際','0241':'阿里健康','6618':'京東健康','1177':'中國生物製藥','2269':'藥明生物','1093':'石藥集團','3968':'招商銀行','0288':'萬洲國際','0941':'中國移動','0002':'中電','0003':'煤氣','0011':'恒生銀行','0012':'恒基地產','0017':'新世界','0066':'港鐵','0688':'中國海外','1109':'華潤置地','1113':'長實','1876':'百威亞太','2331':'李寧','3328':'交通銀行','9961':'攜程','0968':'信義光能','1888':'建滔積層板','3888':'金山軟件','0992':'聯想','2015':'理想汽車','9866':'蔚來','9868':'小鵬','6690':'海爾智家','1929':'周大福','0020':'商湯','9626':'嗶哩嗶哩','2899':'紫金礦業','1919':'中遠海控','2628':'中國人壽','0998':'中信銀行','6030':'中信証券','3993':'洛陽鉬業','0836':'華潤電力','1044':'恒安','0322':'康師傅','2319':'蒙牛','0291':'華潤啤酒','2333':'長城汽車','1766':'中國中車','0390':'中國中鐵','1186':'中國鐵建','3311':'中國建築國際','0914':'海螺水泥','2018':'瑞聲科技','0285':'比亞迪電子','0728':'中國電信','6160':'百濟神州','1801':'信達生物','9926':'康方生物','2359':'藥明康德','3692':'翰森製藥','0960':'龍湖','1997':'九龍倉置業','1972':'太古地產','2388':'中銀香港','1038':'長江基建','6823':'香港電訊','1128':'永利澳門','9633':'農夫山泉','0780':'同程旅行','9698':'萬國數據','0772':'閱文','6110':'滔搏','1910':'新秀麗','0019':'太古A','0763':'中興通訊','0868':'信義玻璃','2600':'中國鋁業','0358':'江西銅業','1378':'中國宏橋','1898':'中煤能源','0916':'龍源電力','0257':'光大環境','2196':'復星醫藥','1530':'三生製藥','0853':'微創醫療'};
 const US={AAPL:'Apple',MSFT:'Microsoft',NVDA:'Nvidia',AMZN:'Amazon',GOOGL:'Alphabet',META:'Meta',TSLA:'Tesla','BRK-B':'Berkshire',AVGO:'Broadcom',JPM:'JPMorgan',LLY:'Eli Lilly',V:'Visa',UNH:'UnitedHealth',XOM:'Exxon',MA:'Mastercard',COST:'Costco',HD:'Home Depot',PG:'P&G',JNJ:'J&J',ABBV:'AbbVie',NFLX:'Netflix',BAC:'Bank of America',CRM:'Salesforce',KO:'Coca-Cola',AMD:'AMD',PEP:'PepsiCo',TMO:'Thermo Fisher',CSCO:'Cisco',ADBE:'Adobe',MRK:'Merck',WMT:'Walmart',ORCL:'Oracle',ACN:'Accenture',MCD:"McDonald's",LIN:'Linde',ABT:'Abbott',DIS:'Disney',QCOM:'Qualcomm',INTU:'Intuit',TXN:'Texas Instr.',CAT:'Caterpillar',GE:'GE Aerospace',VZ:'Verizon',AMGN:'Amgen',IBM:'IBM',PM:'Philip Morris',NOW:'ServiceNow',ISRG:'Intuitive Surg.',GS:'Goldman',SPGI:'S&P Global',BKNG:'Booking',UBER:'Uber',HON:'Honeywell',AXP:'AmEx',PFE:'Pfizer',RTX:'RTX',LOW:"Lowe's",NEE:'NextEra',T:'AT&T',BLK:'BlackRock',C:'Citi',BA:'Boeing',SBUX:'Starbucks',PLTR:'Palantir',COIN:'Coinbase',MU:'Micron',AMAT:'Applied Mat.',LRCX:'Lam Research',PANW:'Palo Alto',SHOP:'Shopify',ARM:'Arm',SMCI:'Supermicro',TSM:'TSMC',ASML:'ASML',BABA:'Alibaba ADR',PDD:'PDD',NKE:'Nike',INTC:'Intel',DE:'Deere',UPS:'UPS',MRNA:'Moderna',ABNB:'Airbnb',SNOW:'Snowflake',CRWD:'CrowdStrike',MSTR:'MicroStrategy',HOOD:'Robinhood',RIVN:'Rivian',SOFI:'SoFi',MARA:'Marathon'};
@@ -283,11 +284,11 @@ function analyse(bars){
   const over=chg>P.overATR*atrP, pullback=trend==='up'&&entry<=s20*(1+P.pullBand)&&entry>=s20*(1-P.pullBand), breakout=last.c>hi20&&volR>P.volRMin;
   if(trend==='down'){lamp='🔴';word='唔做';setup='down';why.push('股價喺 20 日線同 50 日線之下，趨勢向下。')}
   else if(over){word='等回調';setup='over';why.push(`今日升 ${pct(chg)}，超過兩個 ATR，追入 R:R 變差。`)}
-  else if(breakout){lamp='🟢';word='突破留意';setup='breakout';why.push(`收市高過 20 日高位，成交係平時 ${volR.toFixed(1)} 倍。`)}
+  else if(breakout){lamp='🟢';word='突破留意';setup='breakout';why.push(`收市高過 20 日高位，成交係平時 ${fx1(volR)} 倍。`)}
   else if(pullback){lamp='🟢';word='回調企穩';setup='pullback';why.push('上升趨勢中回到 20 日線附近，係較好嘅入場區。')}
   else if(trend==='up'){setup='uptrend';why.push('趨勢向上但未有突破或回調訊號。')}
   else why.push('橫行，方向未清。');
-  if(rr<P.rrMin&&lamp==='🟢'){lamp='🟡';word='R:R 唔夠';why.push(`回報 ${pct(rewP)} 對風險 −${riskP.toFixed(1)}%，唔夠 ${P.rrMin}:1，降級。`)}
+  if(rr<P.rrMin&&lamp==='🟢'){lamp='🟡';word='R:R 唔夠';why.push(`回報 ${pct(rewP)} 對風險 −${fx1(riskP)}%，唔夠 ${P.rrMin}:1，降級。`)}
   if(volR<0.6) why.push('成交淡靜。');
   let zone; if(setup==='pullback'||setup==='uptrend') zone=[s20*0.98,s20*1.02]; else if(setup==='breakout') zone=[hi20,hi20*1.02]; else if(setup==='over') zone=[s20,Math.max(s20,entry-atr)]; else zone=null;
   const t1=entry+1.5*risk, t2=target;
@@ -350,7 +351,7 @@ function cardHTML(r,i){const a=r.a, sl=SL(r);return `
     <div class="tf"><span>今日 ${a.tf.today}</span><span>短線 ${sl.lamp}</span><span>中線 ${a.tf.mid}</span><span>長線 ${a.tf.long}</span></div>
     ${sl.entry?probHTML(r,sl,'short',true):''}
     ${dayLine(r)}
-    <div class="stats"><div class="st">🎯 目標<b class="go">${money(a.target)}</b>${pct(a.rewP)}</div><div class="st">🛑 止蝕<b class="stop">${money(a.stop)}</b>−${a.riskP.toFixed(1)}%</div><div class="st">R:R<b>${a.rr.toFixed(1)} : 1</b>ATR ${a.atrP.toFixed(1)}%</div></div>
+    <div class="stats"><div class="st">🎯 目標<b class="go">${money(a.target)}</b>${pct(a.rewP)}</div><div class="st">🛑 止蝕<b class="stop">${money(a.stop)}</b>−${fx1(a.riskP)}%</div><div class="st">R:R<b>${fx1(a.rr)} : 1</b>ATR ${fx1(a.atrP)}%</div></div>
     <div class="why"><b>點解？</b> ${esc(sl.why)}<br><span class="muted">最大風險：跌穿 ${money(a.stop)}，趨勢假設失效。</span></div>
     <div class="acts"><button class="btn" data-council="${i}">👥 五人開會</button><button class="btn sec" data-sum="${i}">📋 總結</button><button class="btn sec" data-save="${i}">記低 paper trade</button><button class="btn sec" data-real="${i}">💰 我買咗</button></div>
     <div class="council" ${panelAttr('council',r)}>${panelHtml('council',r)}</div>
@@ -362,9 +363,9 @@ function renderCards(){ const list=visibleRows(), rows=state[market].rows;
   $('cards').innerHTML=missHTML+list.slice(0,80).map(r=>cardHTML(r,rows.indexOf(r))).join('')+(list.length>80?'<div class="panel muted">只顯示頭 80 隻（共 '+list.length+'）。</div>':''); }
 function zoneHTML(a){ const z=a.zone; return `<div class="zone">
    <div class="z buy">理想買入區<b>${z?money(z[0])+' – '+money(z[1]):'唔買'}</b>${a.setup==='pullback'||a.setup==='uptrend'?'20 日線附近':a.setup==='breakout'?'突破位':a.setup==='over'?'等回調到呢度':'趨勢向下'}</div>
-   <div class="z stop">止蝕（買咗就守）<b>${money(a.stop)}</b>−${a.riskP.toFixed(1)}%</div>
+   <div class="z stop">止蝕（買咗就守）<b>${money(a.stop)}</b>−${fx1(a.riskP)}%</div>
    <div class="z sell">T1 先走一半<b>${money(a.t1)}</b>+${((a.t1-a.entry)/a.entry*100).toFixed(1)}%</div>
-   <div class="z sell">T2 目標<b>${money(a.t2)}</b>+${a.rewP.toFixed(1)}%</div></div>`; }
+   <div class="z sell">T2 目標<b>${money(a.t2)}</b>+${fx1(a.rewP)}%</div></div>`; }
 let sumH=LS.get('sumH','short'), sumF=LS.get('sumF','best');
 const HZ={day:{name:'⚡ 即日',hold:'即日買即日賣',note:'用 5 分鐘 K 線、VWAP 同開市區間。收市前一定平倉。數據延遲，入場以 Futubull 報價為準。'},
   short:{name:'短線',hold:'幾日至幾星期',note:'用 20 日線、突破同回調。止蝕跟 10 日低位／ATR，目標 T1 先走一半、T2 全走。'},
@@ -391,8 +392,8 @@ function plan(r,h){ const a=r.a, p=r.live?r.live.p:a.entry, atr=a.atrP/100*p, O=
   return null; }
 function planZone(pl){ const pc=x=>((x-pl.entry)/pl.entry*100).toFixed(1); return `<div class="zone">
    <div class="z buy">理想買入區<b>${pl.zone?money(pl.zone[0])+' – '+money(pl.zone[1]):'唔買'}</b>${esc(pl.zoneLbl)}</div>
-   <div class="z stop">止蝕<b>${money(pl.stop)}</b>−${pl.riskP.toFixed(1)}%</div>
-   ${pl.t1!=null?`<div class="z sell">T1 先走一半<b>${money(pl.t1)}</b>+${pc(pl.t1)}%</div><div class="z sell">T2 目標<b>${money(pl.t2)}</b>+${pc(pl.t2)}%　R:R ${pl.rr.toFixed(1)}</div>`
+   <div class="z stop">止蝕<b>${money(pl.stop)}</b>−${fx1(pl.riskP)}%</div>
+   ${pl.t1!=null?`<div class="z sell">T1 先走一半<b>${money(pl.t1)}</b>+${pc(pl.t1)}%</div><div class="z sell">T2 目標<b>${money(pl.t2)}</b>+${pc(pl.t2)}%　R:R ${fx1(pl.rr)}</div>`
      :`<div class="z sell" style="grid-column:1/-1">冇固定目標<b>持有</b>每月檢查一次；收市跌穿止蝕先走</div>`}</div>`; }
 function renderSummary(){ const rows=state[market].rows; document.querySelectorAll('#sumTabs .tab').forEach(t=>t.classList.toggle('on',t.dataset.h===sumH));
   $('sumNote').innerHTML=`<b>${HZ[sumH].name}（${HZ[sumH].hold}）</b>：${HZ[sumH].note}`;
@@ -406,7 +407,7 @@ function renderSummary(){ const rows=state[market].rows; document.querySelectorA
     <div class="tf">${['day','short','mid','long'].map(h=>{const q=plan(r,h);return `<span${h===sumH?' style="outline:2px solid var(--act)"':''}>${HZ[h].name.replace('⚡ ','')} ${q?q.lamp:'⚪'}</span>`}).join('')}</div>
     ${planZone(pl)}
     ${probHTML(r,pl,sumH,true)}
-    ${sumH==='day'?`<div class="small">VWAP ${money(pl.extra.vwap)} · 開市區間 ${money(pl.extra.orbL)}–${money(pl.extra.orbH)} · 成交 ${pl.extra.volR.toFixed(1)}× · 數據 ${esc(fmtTime(pl.extra.at))}</div>`:''}
+    ${sumH==='day'?`<div class="small">VWAP ${money(pl.extra.vwap)} · 開市區間 ${money(pl.extra.orbL)}–${money(pl.extra.orbH)} · 成交 ${fx1(pl.extra.volR)}× · 數據 ${esc(fmtTime(pl.extra.at))}</div>`:''}
     <div class="why"><b>點解？</b> ${esc(pl.why)}</div>
     ${kidHTML(r,pl,sumH)}
     <div class="acts"><button class="btn" data-gen="${i}">✍️ 總結＋論據</button><button class="btn sec" data-news="${i}">📰 新聞分析</button><button class="btn sec" data-saveplan="${i}">記低</button></div>
@@ -422,9 +423,9 @@ function customDesc(c){ return `賺蝕比 ≥ ${c.minRR}、止蝕唔超過 ${c.m
 PROF.custom.desc=customDesc(PROF.custom);
 let prof=LS.get('prof','bal'); let capital=+LS.get('capital',10000)||10000;
 function profFit(o,a,p,h,r){ const P_=PROF[prof]; const why=[];
-  if(o.riskP>P_.maxStop) why.push(`止蝕要 −${o.riskP.toFixed(1)}%，超過你接受嘅 ${P_.maxStop}%`);
-  if(o.rr!=null&&o.rr<P_.minRR) why.push(`賺蝕比 ${o.rr.toFixed(1)} 低過你要求嘅 ${P_.minRR}`);
-  if(a.atrP>P_.maxATR) why.push(`每日上落 ${a.atrP.toFixed(1)}% 太大（你上限 ${P_.maxATR}%）`);
+  if(o.riskP>P_.maxStop) why.push(`止蝕要 −${fx1(o.riskP)}%，超過你接受嘅 ${P_.maxStop}%`);
+  if(o.rr!=null&&o.rr<P_.minRR) why.push(`賺蝕比 ${fx1(o.rr)} 低過你要求嘅 ${P_.minRR}`);
+  if(a.atrP>P_.maxATR) why.push(`每日上落 ${fx1(a.atrP)}% 太大（你上限 ${P_.maxATR}%）`);
   if(P_.needLong&&a.s200&&p<a.s200) why.push('長線（200 日線）唔係向上');
   if(P_.minWin>0&&r&&h&&!why.length&&o.lamp==='🟢'){ const pr=probFor(r,o,h); if(pr&&pr.win*100<P_.minWin) why.push(`賺錢機會只有 ${Math.round(pr.win*100)}%，低過你要求嘅 ${P_.minWin}%`); }
   o.fit=!why.length; o.fitWhy=why;
@@ -472,11 +473,11 @@ function kidHTML(r,pl,h){ const a=r.a, p=r.live?r.live.p:a.entry, chg=r.live?r.l
   if(p>a.s20) buy.push('股價高過一個月平均價：最近買嘅人多過賣嘅人。');
   if(a.s50&&p>a.s50) buy.push('股價高過兩個半月平均價：中期趨勢向上。');
   if(a.s200&&p>a.s200) buy.push('股價高過一年平均價：長期趨勢健康，順風而行。');
-  if(a.setup==='breakout') buy.push(`升穿咗過去一個月最高位，而且成交係平時 ${a.volR.toFixed(1)} 倍：好多人一齊追買，有機會開始一浪新升勢。`);
+  if(a.setup==='breakout') buy.push(`升穿咗過去一個月最高位，而且成交係平時 ${fx1(a.volR)} 倍：好多人一齊追買，有機會開始一浪新升勢。`);
   if(a.setup==='pullback') buy.push('上升途中跌返落一個月平均價附近：好似「減價」，係較安全嘅入場位。');
   if(h==='mid'&&a.s50&&p>a.s50&&p<=a.s50*1.06) buy.push('貼近 50 日線：中線嚟講係支持位，跌到呢度通常有人接貨。');
-  if(h==='day'&&pl.extra){ const d=pl.extra; if(p>d.vwap) buy.push(`今日股價高過 VWAP ${money(d.vwap)}（今日所有成交嘅平均價）：今日入面買家較強。`); if(d.volR>1.3) buy.push(`今日成交係平時 ${d.volR.toFixed(1)} 倍：有人留意緊。`); }
-  if(pl.rr!=null&&pl.rr>=2) buy.push(`賺蝕比 ${pl.rr.toFixed(1)}：計落如果啱，賺嘅錢係蝕嘅錢 ${pl.rr.toFixed(1)} 倍。`);
+  if(h==='day'&&pl.extra){ const d=pl.extra; if(p>d.vwap) buy.push(`今日股價高過 VWAP ${money(d.vwap)}（今日所有成交嘅平均價）：今日入面買家較強。`); if(d.volR>1.3) buy.push(`今日成交係平時 ${fx1(d.volR)} 倍：有人留意緊。`); }
+  if(pl.rr!=null&&pl.rr>=2) buy.push(`賺蝕比 ${fx1(pl.rr)}：計落如果啱，賺嘅錢係蝕嘅錢 ${fx1(pl.rr)} 倍。`);
   if(!buy.length) buy.push('暫時搵唔到清楚嘅買入理由——冇理由就唔使買。');
   const alive=p>pl.stop;
   if(alive) hold.push(`未跌穿止蝕 ${money(pl.stop)}：計劃仲有效，唔使因為一兩日上落就賣。`); else hold.push(`已經跌穿止蝕 ${money(pl.stop)}：<b class="r">唔建議再揸</b>，認錯離場保住本金。`);
@@ -488,23 +489,23 @@ function kidHTML(r,pl,h){ const a=r.a, p=r.live?r.live.p:a.entry, chg=r.live?r.l
   if(h==='day') hold.splice(0,hold.length,'即日炒唔應該「持有」：收市前一定要賣晒，唔好留過夜。');
   if(a.s200&&p<a.s200) risk.push('股價低過一年平均價：長期趨勢向下，好似逆水行舟，反彈好多時都係短暫。');
   if(a.setup==='over') risk.push(`今日升得太急（${pct(chg)}）：急升之後好多時會回落，而家追入好易買喺高位。`);
-  if(a.atrP>4) risk.push(`上落好大：平時一日可以郁 ${a.atrP.toFixed(1)}%，即係每 ${CFG[market].cur}1,000 一日上落 ${per(a.atrP)}，心理要頂得住。`);
-  if(pl.riskP>8) risk.push(`止蝕位離得遠（−${pl.riskP.toFixed(1)}%）：一錯就蝕得多，應該買細注啲。`);
-  if(a.volR<0.8&&h!=='long') risk.push(`成交少過平時（${a.volR.toFixed(1)} 倍）：升都升得冇乜力，可能好快停。`);
+  if(a.atrP>4) risk.push(`上落好大：平時一日可以郁 ${fx1(a.atrP)}%，即係每 ${CFG[market].cur}1,000 一日上落 ${per(a.atrP)}，心理要頂得住。`);
+  if(pl.riskP>8) risk.push(`止蝕位離得遠（−${fx1(pl.riskP)}%）：一錯就蝕得多，應該買細注啲。`);
+  if(a.volR<0.8&&h!=='long') risk.push(`成交少過平時（${fx1(a.volR)} 倍）：升都升得冇乜力，可能好快停。`);
   if(a.turnover<20) risk.push(`成交額細（日均只有 ${CFG[market].cur}${a.turnover.toFixed(0)}M）：買賣差價大，急跌時可能賣唔走，只可以買好細注。`);
-  if(pl.rr!=null&&pl.rr<1.5) risk.push(`賺蝕比只得 ${pl.rr.toFixed(1)}：賺嘅唔夠抵返蝕嘅風險。`);
+  if(pl.rr!=null&&pl.rr<1.5) risk.push(`賺蝕比只得 ${fx1(pl.rr)}：賺嘅唔夠抵返蝕嘅風險。`);
   if(h==='day') risk.push('即日炒最易蝕：報價有延遲、手續費食利潤，新手建議先用 paper trade 練。');
   if(market==='HK') risk.push('港股報價延遲約 15 分鐘：落單前一定要喺 Futubull 睇即時價，止蝕單都喺 Futubull 設。');
   risk.push('呢度只係睇價格圖表，冇計公司賺唔賺錢、有冇壞消息——撳「📰 新聞分析」或者「✍️ 總結＋論據」睇埋新聞。');
-  const ex=pl.t1!=null?`如果你用 ${CFG[market].cur}1,000 喺 ${money(pl.entry)} 買：<br>· 跌到止蝕 ${money(pl.stop)} 就賣 → 最多蝕大約 <b class="r">${per(pl.riskP)}</b>（如果一開市就跳低，可能蝕多少少）<br>· 升到 T1 ${money(pl.t1)} 賣一半、T2 ${money(pl.t2)} 賣晒 → 大約賺 <b class="g">${per(((pl.t1+pl.t2)/2/pl.entry-1)*100)}</b><br>即係「冒 $1 風險，搏 $${pl.rr.toFixed(1)}」。`
+  const ex=pl.t1!=null?`如果你用 ${CFG[market].cur}1,000 喺 ${money(pl.entry)} 買：<br>· 跌到止蝕 ${money(pl.stop)} 就賣 → 最多蝕大約 <b class="r">${per(pl.riskP)}</b>（如果一開市就跳低，可能蝕多少少）<br>· 升到 T1 ${money(pl.t1)} 賣一半、T2 ${money(pl.t2)} 賣晒 → 大約賺 <b class="g">${per(((pl.t1+pl.t2)/2/pl.entry-1)*100)}</b><br>即係「冒 $1 風險，搏 $${fx1(pl.rr)}」。`
     :`如果你用 ${CFG[market].cur}1,000 喺 ${money(pl.entry)} 買：跌到止蝕 ${money(pl.stop)} 就賣 → 最多蝕大約 <b class="r">${per(pl.riskP)}</b>。長線冇固定目標，升幾多都揸住，直到趨勢壞。`;
   const kk=r.code+"|"+h; return `<details class="kid" data-k="${esc(kk)}" ${KIDOPEN.has(kk)?"open":""}><summary>🧒 新手解釋：為咩買／為咩持有／風險</summary>
    <div class="big">一句講晒：${one}</div>
    <h4>📊 而家發生緊咩事？</h4><ul>
     <li>現價 ${money(p)}，今日 ${pct(chg)}。</li>
     ${pos(a.s20,'20 日線','過去一個月')}${pos(a.s50,'50 日線','過去兩個半月')}${pos(a.s200,'200 日線','過去一年')}
-    <li>成交量係平時 <b>${a.volR.toFixed(1)} 倍</b>。${a.volR>1.3?'多過平時好多：有大戶或者好多人留意緊。':a.volR<0.8?'少過平時：冇乜人理。':'同平時差唔多。'}</li>
-    <li>ATR（平均每日上落）係 ${a.atrP.toFixed(1)}%：每 ${CFG[market].cur}1,000 平時一日會上落大約 ${per(a.atrP)}。${a.atrP>4?'偏大，波動高。':a.atrP<2?'偏細，比較穩。':'正常。'}</li></ul>
+    <li>成交量係平時 <b>${fx1(a.volR)} 倍</b>。${a.volR>1.3?'多過平時好多：有大戶或者好多人留意緊。':a.volR<0.8?'少過平時：冇乜人理。':'同平時差唔多。'}</li>
+    <li>ATR（平均每日上落）係 ${fx1(a.atrP)}%：每 ${CFG[market].cur}1,000 平時一日會上落大約 ${per(a.atrP)}。${a.atrP>4?'偏大，波動高。':a.atrP<2?'偏細，比較穩。':'正常。'}</li></ul>
    <h4 class="g">✅ 為咩買</h4><ul>${buy.map(x=>'<li>'+x+'</li>').join('')}</ul>
    <h4>🤲 如果已經買咗，為咩繼續持有</h4><ul>${hold.map(x=>'<li>'+x+'</li>').join('')}</ul>
    <h4 class="r">⚠️ 要小心（風險）</h4><ul>${risk.map(x=>'<li>'+x+'</li>').join('')}</ul>
@@ -542,7 +543,7 @@ function renderDetail(){ if(!dCode) return; const rows=state[market].rows, i=row
     ${chartSVG(r,pl,h)}
     ${pl?planZone(pl)+probHTML(r,pl,h,false)+`<div class="why"><b>點解？</b> ${esc(pl.why)}</div>`+kidHTML(r,pl,h):`<div class="panel muted">${h==='day'?'而家冇即日數據（未開市，或者報價未更新）。':'數據唔夠計呢個時間框。'}</div>`}
     ${h!=='day'?dayLine(r):''}
-    <div class="kv"><div>20 日線<b>${money(a.s20)}</b></div><div>50 日線<b>${a.s50?money(a.s50):'—'}</b></div><div>200 日線<b>${a.s200?money(a.s200):'—'}</b></div><div>20 日高位<b>${money(a.hi20)}</b></div><div>成交量（對平時）<b>${a.volR.toFixed(1)}×</b></div><div>ATR（每日上落）<b>${a.atrP.toFixed(1)}%</b></div></div>
+    <div class="kv"><div>20 日線<b>${money(a.s20)}</b></div><div>50 日線<b>${a.s50?money(a.s50):'—'}</b></div><div>200 日線<b>${a.s200?money(a.s200):'—'}</b></div><div>20 日高位<b>${money(a.hi20)}</b></div><div>成交量（對平時）<b>${fx1(a.volR)}×</b></div><div>ATR（每日上落）<b>${fx1(a.atrP)}%</b></div></div>
     <h4 style="margin:14px 0 6px">🧰 功能</h4>
     <div class="acts"><button class="btn" data-dchat="1" style="flex:1">💬 同 Claude 傾呢隻股</button></div>
     <div class="acts" style="flex-wrap:wrap"><button class="btn" data-council="${i}">👥 五人開會</button><button class="btn" data-dgen="${i}">✍️ 總結＋論據</button><button class="btn sec" data-news="${i}">📰 新聞分析</button></div>
@@ -592,11 +593,11 @@ function chatCtx(){ const rows=state[market].rows, P_=PROF[prof];
   const prof_=`用戶風險取向：${P_.name}（${P_.desc}）本金 ${CFG[market].cur}${capital}。`;
   if(chatCode){ const r=rows.find(x=>x.code===chatCode); if(!r) return prof_;
     const hz=['day','short','mid','long'].map(h=>{ const pl=plan(r,h); if(!pl) return `${HZ[h].name}：冇數據`; const pr=probFor(r,pl,h);
-      return `${HZ[h].name}（${HZ[h].hold}）：${pl.lamp} ${pl.word}；${pl.why}｜買入區 ${pl.zone?money(pl.zone[0])+'–'+money(pl.zone[1]):'冇'}｜止蝕 ${money(pl.stop)}（−${pl.riskP.toFixed(1)}%）｜${pl.t1!=null?'T1 '+money(pl.t1)+'，T2 '+money(pl.t2)+'，R:R '+pl.rr.toFixed(1):'冇固定目標'}${pr?`｜模擬（假設冇方向優勢）：賺錢 ${Math.round(pr.win*100)}%、蝕錢 ${Math.round(pr.lose*100)}%、平均 ${pct(pr.ev)}`:''}${pl.fit===false?'｜唔啱用戶取向：'+pl.fitWhy.join('；'):''}`; }).join('\n');
+      return `${HZ[h].name}（${HZ[h].hold}）：${pl.lamp} ${pl.word}；${pl.why}｜買入區 ${pl.zone?money(pl.zone[0])+'–'+money(pl.zone[1]):'冇'}｜止蝕 ${money(pl.stop)}（−${fx1(pl.riskP)}%）｜${pl.t1!=null?'T1 '+money(pl.t1)+'，T2 '+money(pl.t2)+'，R:R '+fx1(pl.rr):'冇固定目標'}${pr?`｜模擬（假設冇方向優勢）：賺錢 ${Math.round(pr.win*100)}%、蝕錢 ${Math.round(pr.lose*100)}%、平均 ${pct(pr.ev)}`:''}${pl.fit===false?'｜唔啱用戶取向：'+pl.fitWhy.join('；'):''}`; }).join('\n');
     const mine=LS.get(RK,[]).filter(e=>e.code===r.code&&(e.m||'HK')===market).map(e=>`真實：${e.qty} 股 @ ${money(e.buy)}${e.sell!=null?' 已賣 '+money(e.sell):' 持有中'}`).join('；');
     const d=dayFor(r);
-    return `${facts(r)}\n${r.live?'最新報價 '+money(r.live.p)+'（'+pct(r.live.chg)+'），時間 '+fmtTime(r.liveAt):''}\n各時間框（規則引擎計好）：\n${hz}\n${d?`即日：VWAP ${money(d.vwap)}，開市區間 ${money(d.orbL)}–${money(d.orbH)}，成交 ${d.volR.toFixed(1)} 倍`:''}\n${mine?'用戶持倉：'+mine:'用戶未有持倉'}\n${prof_}`; }
-  const top=rows.map(r=>({r,pl:SL(r)})).filter(x=>x.pl.lamp==='🟢').slice(0,12).map(x=>`${x.r.code} ${x.r.name}：${x.pl.word}，入 ${money(x.pl.entry)}，止蝕 ${money(x.pl.stop)}${x.pl.rr?'，R:R '+x.pl.rr.toFixed(1):''}`).join('\n');
+    return `${facts(r)}\n${r.live?'最新報價 '+money(r.live.p)+'（'+pct(r.live.chg)+'），時間 '+fmtTime(r.liveAt):''}\n各時間框（規則引擎計好）：\n${hz}\n${d?`即日：VWAP ${money(d.vwap)}，開市區間 ${money(d.orbL)}–${money(d.orbH)}，成交 ${fx1(d.volR)} 倍`:''}\n${mine?'用戶持倉：'+mine:'用戶未有持倉'}\n${prof_}`; }
+  const top=rows.map(r=>({r,pl:SL(r)})).filter(x=>x.pl.lamp==='🟢').slice(0,12).map(x=>`${x.r.code} ${x.r.name}：${x.pl.word}，入 ${money(x.pl.entry)}，止蝕 ${money(x.pl.stop)}${x.pl.rr?'，R:R '+fx1(x.pl.rr):''}`).join('\n');
   const b=rows.length?Math.round(rows.filter(r=>r.a.aboveS20).length/rows.length*100):0;
   const idx=Object.values(state[market].idx||{}).map(v=>`${v.name} ${pct(v.chg)}`).join('，');
   return `市場：${market==='HK'?'港股':'美股'}，收市掃描 ${state[market].date}，共 ${rows.length} 隻。指數：${idx}。廣度：${b}% 喺 20 日線上。\n短線 🟢（已按用戶取向）：\n${top||'冇'}\n${prof_}`; }
@@ -710,8 +711,8 @@ async function claudeJSON(prompt,useSearch,onProg){
   return parseLooseJSON(texts.join('')); }
 async function testKey(){ const out=$('anTest'); out.textContent='測試緊…'; try{ const j=await claudeRaw({model:MODEL,max_tokens:1000,output_config:{effort:'low'},messages:[{role:'user',content:'Reply with OK'}]}); out.innerHTML='<span style="color:var(--go)">✅ Key 用得（'+esc(j.model)+'）</span>'; }catch(e){ out.innerHTML='<span style="color:var(--stop)">❌ '+esc(e&&e.code==='nokey'?'未貼 key':e.message)+'</span>'; } }
 function facts(r){const a=r.a;return `股票：${r.code} ${r.name}（${market==='HK'?'港股':'美股'}）｜現價 ${money(a.entry)}，今日 ${pct(a.chg)}
-規則訊號：${a.lamp} ${a.word}。趨勢 ${a.trend}；20 日線 ${money(a.s20)}，50 日線 ${a.s50?money(a.s50):'—'}，200 日線 ${a.s200?money(a.s200):'—'}；成交係平時 ${a.volR.toFixed(1)} 倍；ATR ${a.atrP.toFixed(1)}%
-理想買入區 ${a.zone?money(a.zone[0])+'–'+money(a.zone[1]):'冇（趨勢向下）'}｜🛑止蝕 ${money(a.stop)}（−${a.riskP.toFixed(1)}%）｜T1 ${money(a.t1)}｜T2 ${money(a.t2)}（+${a.rewP.toFixed(1)}%）｜R:R ${a.rr.toFixed(1)}:1
+規則訊號：${a.lamp} ${a.word}。趨勢 ${a.trend}；20 日線 ${money(a.s20)}，50 日線 ${a.s50?money(a.s50):'—'}，200 日線 ${a.s200?money(a.s200):'—'}；成交係平時 ${fx1(a.volR)} 倍；ATR ${fx1(a.atrP)}%
+理想買入區 ${a.zone?money(a.zone[0])+'–'+money(a.zone[1]):'冇（趨勢向下）'}｜🛑止蝕 ${money(a.stop)}（−${fx1(a.riskP)}%）｜T1 ${money(a.t1)}｜T2 ${money(a.t2)}（+${fx1(a.rewP)}%）｜R:R ${fx1(a.rr)}:1
 系統理由：${a.why}`;}
 const RULES='你只可以解釋已計好嘅數字，唔可以自己作任何價位、百分比或訊號。用香港口語廣東話（嘅／喺／唔係／畀），短句，技術詞保留英文。';
 function councilPrompt(r){return `你係一個五人委員會。${RULES}\n審一單 paper trade：\n${facts(r)}\n五位顧問各自獨立講，唔可以提到對方：1 反向懷疑論者（寫失敗驗屍報告）2 第一性原理工程師（真正 load-bearing 嘅事實）3 擴張主義者（無限資源點做，最後一樣帶返現實）4 局外人（唔識股票嘅人邊度唔明）5 執行者（聽朝一件具體會產生證據嘅事）。每位 2 至 3 點，每點最多 20 字，動詞行先，每位畀燈 🟢🟡🔴。然後交叉批評（只講「一位成員」），然後主席裁決，可以判買家輸。\n只回覆 JSON，冇 fence：{"summary":"一句30字內","advisors":[{"name":"","lamp":"","points":[""]}],"critique":{"strongest":"","weakest":"","clash":["",""]},"chairman":{"lamp":"","decision":"","risk":"","action":"","overruled":""}}`;}
@@ -777,7 +778,7 @@ function renderLog(){ const log=LS.get('pt_log',[]), win=log.filter(e=>e.status=
   if(!log.length){$('log').innerHTML='<div class="panel muted" style="margin:0">仲未有紀錄。喺卡上撳「記低 paper trade」。之後每次更新會自動用日線高低價判定到目標／中止蝕。</div>';return}
   const days=d=>Math.max(0,Math.round((Date.now()-new Date(d))/864e5));
   $('log').innerHTML=log.map(e=>`<div class="en ${e.status}"><div class="t"><span>${e.m==='US'?'🇺🇸':'🇭🇰'} ${esc(e.code)} ${esc(e.name)} ${e.lamp}</span><small>${esc(e.date)}${e.closed?' → '+esc(e.closed):e.status==='open'?' · '+days(e.date)+' 日':''}</small></div>
-   <div class="muted">$${e.entry.toFixed(2)} → 🎯 $${e.target.toFixed(2)} (+${e.rewP.toFixed(1)}%)　🛑 $${e.stop.toFixed(2)} (−${e.riskP.toFixed(1)}%)　R:R ${e.rr.toFixed(1)}:1${e.auto?'<span class="tag">自動判定</span>':''}</div>
+   <div class="muted">$${e.entry.toFixed(2)} → 🎯 $${e.target.toFixed(2)} (+${fx1(e.rewP)}%)　🛑 $${e.stop.toFixed(2)} (−${fx1(e.riskP)}%)　R:R ${fx1(e.rr)}:1${e.auto?'<span class="tag">自動判定</span>':''}</div>
    <div class="r" data-id="${e.id}"><button class="chip ${e.status==='open'?'sel':''}" data-s="open">未完</button><button class="chip ${e.status==='target'?'sel':''}" data-s="target">到目標</button><button class="chip ${e.status==='stop'?'sel':''}" data-s="stop">中止蝕</button><button class="chip" data-s="del">刪</button></div></div>`).join(''); }
 $('log').addEventListener('click',ev=>{const b=ev.target.closest('button[data-s]');if(!b)return;const id=+b.parentElement.dataset.id;let log=LS.get('pt_log',[]);
   if(b.dataset.s==='del'){if(!confirm('刪除？'))return;log=log.filter(e=>e.id!==id)}else log=log.map(e=>e.id===id?{...e,status:b.dataset.s,auto:false}:e);LS.set('pt_log',log);renderLog()});
@@ -816,13 +817,13 @@ function renderReview(){ const preds=LS.get(PK,[]), buys=preds.filter(p=>p.kind=
   html+=`<b style="display:block;margin-top:12px">🟡 等回調訊號</b><div class="muted">預測「會回落到買入區」：${W.n} 個，判定 ${W.done} 個，命中 ${waits.filter(p=>p.status==='correct').length} 個${W.done?'（'+(waits.filter(p=>p.status==='correct').length/W.done*100).toFixed(0)+'%）':''}。</div>`;
   $('rvStats').innerHTML=html;
   const miss=buys.filter(p=>p.status==='stop'||(p.status==='expired'&&p.ret<0)).slice(0,8);
-  $('rvMiss').innerHTML=miss.length?miss.map(p=>`<div class="miss"><b>${esc(p.code)} ${esc(p.name)}</b> ${p.date} ${p.setup==='breakout'?'突破':'回調'} · 大市 ${p.mk}<br>入 $${p.entry.toFixed(2)} → ${p.status==='stop'?'第 '+p.days+' 日中止蝕 $'+p.stop.toFixed(2):'到期 '+pct(p.ret)}；最深跌 ${pct(p.mae||0)}；當時 R:R ${p.rr.toFixed(1)}，成交 ${p.volR.toFixed(1)}×，ATR ${p.atrP.toFixed(1)}%</div>`).join(''):'<div class="muted">暫時冇做錯嘅 🟢，或者未有結果。</div>';
+  $('rvMiss').innerHTML=miss.length?miss.map(p=>`<div class="miss"><b>${esc(p.code)} ${esc(p.name)}</b> ${p.date} ${p.setup==='breakout'?'突破':'回調'} · 大市 ${p.mk}<br>入 $${p.entry.toFixed(2)} → ${p.status==='stop'?'第 '+p.days+' 日中止蝕 $'+p.stop.toFixed(2):'到期 '+pct(p.ret)}；最深跌 ${pct(p.mae||0)}；當時 R:R ${fx1(p.rr)}，成交 ${fx1(p.volR)}×，ATR ${fx1(p.atrP)}%</div>`).join(''):'<div class="muted">暫時冇做錯嘅 🟢，或者未有結果。</div>';
   $('rvParams').innerHTML=Object.keys(DEFP).map(k=>`${PDESC[k][0]}：<b>${P[k]===true?'開':P[k]===false?'關':P[k]}</b>${P[k]!==DEFP[k]?' <span class="tag">已改，預設 '+(DEFP[k]===false?'關':DEFP[k])+'</span>':''}`).join('<br>');
   const hist=LS.get('reviews',[]); $('rvHist').innerHTML=hist.length?hist.map(h=>`<div class="miss">${h.date}：${h.n} 單有結果，勝率 ${h.winRate==null?'—':h.winRate.toFixed(0)+'%'}。${h.changes.length?'改咗：'+h.changes.map(c=>PDESC[c.param][0]+' '+c.from+'→'+c.to).join('；'):'冇改參數。'}</div>`).join(''):'未做過檢討。'; }
 function reviewPrompt(){ const preds=LS.get(PK,[]), buys=preds.filter(p=>p.kind==='buy'), S=stats(buys);
   const grp=f=>Object.entries(groupBy(buys,f)).map(([k,v])=>{const t=stats(v);return `${k}: ${t.done} 單，勝率 ${t.winRate==null?'—':t.winRate.toFixed(0)+'%'}，平均 ${t.avg==null?'—':pct(t.avg)}`}).join('；');
-  const miss=buys.filter(p=>p.status==='stop'||(p.status==='expired'&&p.ret<0)).slice(0,12).map(p=>`${p.code} ${p.date} ${p.setup} 大市${p.mk} R:R${p.rr.toFixed(1)} 成交${p.volR.toFixed(1)}x ATR${p.atrP.toFixed(1)}% → ${p.status} 第${p.days}日 最深跌${(p.mae||0).toFixed(1)}%`).join('\n');
-  const wins=buys.filter(p=>p.status==='target').slice(0,8).map(p=>`${p.code} ${p.date} ${p.setup} 大市${p.mk} R:R${p.rr.toFixed(1)} → 第${p.days}日到目標`).join('\n');
+  const miss=buys.filter(p=>p.status==='stop'||(p.status==='expired'&&p.ret<0)).slice(0,12).map(p=>`${p.code} ${p.date} ${p.setup} 大市${p.mk} R:R${fx1(p.rr)} 成交${fx1(p.volR)}x ATR${fx1(p.atrP)}% → ${p.status} 第${p.days}日 最深跌${(p.mae||0).toFixed(1)}%`).join('\n');
+  const wins=buys.filter(p=>p.status==='target').slice(0,8).map(p=>`${p.code} ${p.date} ${p.setup} 大市${p.mk} R:R${fx1(p.rr)} → 第${p.days}日到目標`).join('\n');
   return `${RULES}\n你係一個交易系統嘅檢討員。以下係規則引擎過去嘅訊號成績（真實價格判定）。任務：診斷邊類訊號做得差、點解，然後提議改參數。只可以提議以下參數，而且要喺範圍內：\n${Object.keys(DEFP).map(k=>`${k}（${PDESC[k][0]}）而家 ${P[k]}，範圍 ${PDESC[k][1]}–${PDESC[k][2]}`).join('\n')}\n\n總體：${S.done} 單有結果（共 ${S.n} 個訊號），到目標 ${S.win}，中止蝕 ${S.lose}，到期 ${S.expired}，勝率 ${S.winRate==null?'—':S.winRate.toFixed(0)+'%'}，平均 ${S.avg==null?'—':pct(S.avg)}\n分組（setup）：${grp(p=>p.setup)}\n分組（大市）：${grp(p=>'大市'+p.mk)}\n分組（R:R）：${grp(p=>p.rr<2?'R:R<2':p.rr<3?'R:R 2-3':'R:R≥3')}\n分組（ATR）：${grp(p=>p.atrP<2?'ATR<2%':p.atrP<4?'ATR 2-4%':'ATR≥4%')}\n\n做錯嘅：\n${miss||'（冇）'}\n\n做啱嘅：\n${wins||'（冇）'}\n\n規矩：有結果嘅單少過 15，只可以話「數據不足」，proposals 留空。每個 proposal 要引用上面嘅數字做理由。每次最多改 2 個參數，每個參數改幅唔好超過範圍嘅三分一。唔好為咗遷就幾單而大改（overfitting）。\n只回覆 JSON，冇 fence：{"diagnosis":["最多4點，每點30字內"],"proposals":[{"param":"stopATR","from":2.5,"to":3,"reason":"30字內"}],"keep":"一句講邊樣做得好唔好改","confidence":"低|中|高"}`; }
 async function runReview(){ const out=$('rvOut'); const preds=LS.get(PK,[]), S=stats(preds.filter(p=>p.kind==='buy'));
   if(S.done<5){ out.innerHTML=`<div class="muted" style="margin-top:8px">而家只有 ${S.done} 單有結果，檢討冇意義。等多幾日再嚟。</div>`; return; }
@@ -851,14 +852,14 @@ function analyseDay(rec,daily){
   const prevClose=daily&&daily.a&&daily.a.date<rec.d?daily.a.entry:open, chg=(last.c-prevClose)/prevClose*100;
   const dayATR=daily?daily.a.atrP/100*last.c:(hi-lo);
   let lamp='🟡',word='觀望',why=[];
-  if(aboveV&&last.c>orbH&&volR>1.2){lamp='🟢';word='突破開市區間';why.push(`企喺 VWAP 之上，突破頭 30 分鐘高位 ${orbH.toFixed(2)}，成交係平時 ${volR.toFixed(1)} 倍。`)}
+  if(aboveV&&last.c>orbH&&volR>1.2){lamp='🟢';word='突破開市區間';why.push(`企喺 VWAP 之上，突破頭 30 分鐘高位 ${orbH.toFixed(2)}，成交係平時 ${fx1(volR)} 倍。`)}
   else if(aboveV&&Math.abs(last.c-vwap)/vwap<0.004&&chgO>0){lamp='🟢';word='回試 VWAP';why.push('日內向上，回到 VWAP 附近企穩。')}
   else if(!aboveV){lamp='🔴';word='VWAP 之下';why.push('喺 VWAP 之下，日內偏弱，唔好做好倉。')}
   else why.push('VWAP 之上但未有突破，等。');
   if(tb.length<6){lamp='🟡';word='開市未夠 30 分鐘';why=['頭 30 分鐘波動大，等開市區間形成。']}
   const entry=last.c, stop=Math.max(Math.min(vwap,orbL)*0.998, entry-0.6*dayATR), target=Math.max(entry+2*(orbH-orbL), entry+1.0*dayATR);
   const riskP=(entry-stop)/entry*100, rewP=(target-entry)/entry*100, rr=riskP>0?rewP/riskP:0;
-  if(lamp==='🟢'&&rr<1.5){lamp='🟡';word='R:R 唔夠';why.push(`R:R ${rr.toFixed(1)}，唔夠 1.5。`)}
+  if(lamp==='🟢'&&rr<1.5){lamp='🟡';word='R:R 唔夠';why.push(`R:R ${fx1(rr)}，唔夠 1.5。`)}
   return {lamp,word,why:why.join(' '),entry,stop,target,rr,riskP,rewP,vwap,open,hi,lo,orbH,orbL,chgO,chg,volR,at:last.t,nbars:tb.length,d:rec.d};
 }
 let intra={at:null,HK:{},US:{}};
@@ -866,8 +867,8 @@ async function loadIntra(){ try{ intra=await getJSON('intraday.json'); }catch(e)
 function dayFor(r){ const rec=(intra[market]||{})[r.code]; if(!rec) return null; if(r._dayKey===intra.at+market) return r._day; r._day=analyseDay(rec,r); r._dayKey=intra.at+market; return r._day; }
 function dayLine(r){ const a=dayFor(r); if(!a) return ''; const cur=CFG[market].cur;
   return `<div class="dayline ${lampCls(a.lamp)}"><div class="row"><b>⚡ 即日 ${a.lamp} ${esc(a.word)}</b><span class="small">${esc(fmtTime(a.at))}</span></div>
-  <div class="small">VWAP ${cur}${a.vwap.toFixed(2)} ${a.entry>a.vwap?'↑':'↓'} · 開市區間 ${cur}${a.orbL.toFixed(2)}–${a.orbH.toFixed(2)} · 成交 ${a.volR.toFixed(1)}× · 對開市 ${pct(a.chgO)}</div>
-  <div class="small">即日止蝕 <b style="color:var(--stop)">${cur}${a.stop.toFixed(2)}</b>（−${a.riskP.toFixed(1)}%）· 即日目標 <b style="color:var(--go)">${cur}${a.target.toFixed(2)}</b>（${pct(a.rewP)}）· R:R ${a.rr.toFixed(1)}</div>
+  <div class="small">VWAP ${cur}${a.vwap.toFixed(2)} ${a.entry>a.vwap?'↑':'↓'} · 開市區間 ${cur}${a.orbL.toFixed(2)}–${a.orbH.toFixed(2)} · 成交 ${fx1(a.volR)}× · 對開市 ${pct(a.chgO)}</div>
+  <div class="small">即日止蝕 <b style="color:var(--stop)">${cur}${a.stop.toFixed(2)}</b>（−${fx1(a.riskP)}%）· 即日目標 <b style="color:var(--go)">${cur}${a.target.toFixed(2)}</b>（${pct(a.rewP)}）· R:R ${fx1(a.rr)}</div>
   <div class="small">${esc(a.why)} 收市前平倉。</div></div>`; }
 /* ---------- price alerts ---------- */
 function toast(msg){ const t=$('toast'); t.textContent=msg; t.className='toast show'; setTimeout(()=>t.className='toast',6000); try{ navigator.vibrate&&navigator.vibrate([200,100,200]); }catch(e){} }
