@@ -656,16 +656,43 @@ function apiErr(status,j){ const m=(j&&j.error&&j.error.message)||''; const ty=(
   if(status===429) return '太密，等一分鐘再試。';
   if(status===529||ty==='overloaded_error') return 'Claude 而家好忙，等陣再試。';
   return 'API 錯誤 '+status+'：'+m; }
-async function claudeRaw(body){ const key=anKey(); if(!key) throw {code:'nokey'};
-  let r; try{ r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-beta':'server-side-fallback-2026-07-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({...body,fallbacks:'default'})}); }
-  catch(e){ throw new Error('連唔到 Anthropic（網絡或者瀏覽器阻擋）：'+e.message); }
-  let j=null; try{ j=await r.json(); }catch(e){} if(!r.ok||!j||j.error) throw new Error(apiErr(r.status,j));
-  if(j.stop_reason==='refusal') throw new Error('Claude 唔肯答呢條問題'+(j.stop_details&&j.stop_details.category?'（'+j.stop_details.category+'）':'')+'，試下換個講法。');
-  return j; }
-async function claudeJSON(prompt,useSearch){
+/* 用 streaming：邊收邊砌返成個回覆，onProg 可以顯示進度；90 秒乜都收唔到就當斷線，唔會一直轉 */
+const STALL='Claude 90 秒冇回應（網絡斷咗，或者手機轉咗去第二個 app），再撳一次。';
+async function claudeRaw(body,onProg){ const key=anKey(); if(!key) throw {code:'nokey'};
+  const ac=new AbortController(); let idle; const poke=()=>{ clearTimeout(idle); idle=setTimeout(()=>ac.abort(),90000); }; poke();
+  let r; try{ r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',signal:ac.signal,headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-beta':'server-side-fallback-2026-07-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({...body,fallbacks:'default',stream:true})}); }
+  catch(e){ clearTimeout(idle); throw new Error(ac.signal.aborted?STALL:'連唔到 Anthropic（網絡或者瀏覽器阻擋）：'+e.message); }
+  if(!r.ok){ clearTimeout(idle); let j=null; try{ j=await r.json(); }catch(e){} throw new Error(apiErr(r.status,j)); }
+  const msg={content:[],stop_reason:null,stop_details:null,model:''}, js={};
+  const on=ev=>{ const b=msg.content[ev.index], d=ev.delta;
+    if(ev.type==='message_start') msg.model=ev.message.model;
+    else if(ev.type==='content_block_start'){ msg.content[ev.index]=ev.content_block; if(/tool_use$/.test(ev.content_block.type)) js[ev.index]=''; }
+    else if(ev.type==='content_block_delta'&&b){
+      if(d.type==='text_delta') b.text=(b.text||'')+d.text;
+      else if(d.type==='thinking_delta') b.thinking=(b.thinking||'')+d.thinking;
+      else if(d.type==='signature_delta') b.signature=d.signature;
+      else if(d.type==='input_json_delta') js[ev.index]+=d.partial_json;
+      else if(d.type==='citations_delta') (b.citations=b.citations||[]).push(d.citation); }
+    else if(ev.type==='content_block_stop'&&ev.index in js){ try{ b.input=js[ev.index]?JSON.parse(js[ev.index]):{}; }catch(e){} delete js[ev.index]; }
+    else if(ev.type==='message_delta'){ if(d.stop_reason) msg.stop_reason=d.stop_reason; if(d.stop_details) msg.stop_details=d.stop_details; }
+    else if(ev.type==='error') throw new Error(apiErr(0,ev)); };
+  const rd=r.body.getReader(), dec=new TextDecoder(); let buf='';
+  try{ for(;;){ const {done,value}=await rd.read(); if(done) break; poke();
+      buf+=dec.decode(value,{stream:true}).replace(/\r\n/g,'\n'); let i;
+      while((i=buf.indexOf('\n\n'))>=0){ const data=buf.slice(0,i).split('\n').filter(l=>l.startsWith('data:')).map(l=>l.slice(5).trim()).join(''); buf=buf.slice(i+2);
+        if(data){ on(JSON.parse(data)); if(onProg) onProg(msg); } } } }
+  catch(e){ throw ac.signal.aborted?new Error(STALL):e; }
+  finally{ clearTimeout(idle); }
+  if(!msg.stop_reason) throw new Error('連線中途斷咗，再撳一次。');
+  msg.content=msg.content.filter(Boolean);
+  if(msg.stop_reason==='refusal') throw new Error('Claude 唔肯答呢條問題'+(msg.stop_details&&msg.stop_details.category?'（'+msg.stop_details.category+'）':'')+'，試下換個講法。');
+  return msg; }
+function progText(m){ const n=m.content.reduce((s,b)=>s+(b&&b.type==='text'?(b.text||'').length:0),0); if(n) return '寫緊…（'+n+' 字）';
+  const q=m.content.filter(b=>b&&b.type==='server_tool_use').map(b=>b.input&&b.input.query).filter(Boolean).pop(); return q?'搜尋緊：'+q:'諗緊…'; }
+async function claudeJSON(prompt,useSearch,onProg){
   if(LANG==='en') prompt+='\n\nIMPORTANT: The user reads English. Write every text value in plain, simple English (not Chinese), as if to someone who knows nothing about stocks. Keep JSON keys and enum values (🟢🟡🔴, 利好/利淡/中性, 技術/新聞, 低/中/高) exactly as specified.';
   const body={model:MODEL,max_tokens:12000,output_config:{effort:'low'},messages:[{role:'user',content:prompt}]}; if(useSearch) body.tools=[{type:'web_search_20260209',name:'web_search',max_uses:3}];
-  let texts=[]; for(let turn=0;turn<4;turn++){ const j=await claudeRaw(body); texts.push(...j.content.filter(b=>b.type==='text').map(b=>b.text));
+  let texts=[]; for(let turn=0;turn<4;turn++){ const j=await claudeRaw(body,onProg); texts.push(...j.content.filter(b=>b.type==='text').map(b=>b.text));
     if(j.stop_reason==='pause_turn'){ body.messages=[...body.messages,{role:'assistant',content:j.content}]; continue; }
     if(j.stop_reason==='max_tokens') throw new Error('回覆太長被截斷，再撳一次');
     break; }
@@ -679,7 +706,10 @@ const RULES='你只可以解釋已計好嘅數字，唔可以自己作任何價�
 function councilPrompt(r){return `你係一個五人委員會。${RULES}\n審一單 paper trade：\n${facts(r)}\n五位顧問各自獨立講，唔可以提到對方：1 反向懷疑論者（寫失敗驗屍報告）2 第一性原理工程師（真正 load-bearing 嘅事實）3 擴張主義者（無限資源點做，最後一樣帶返現實）4 局外人（唔識股票嘅人邊度唔明）5 執行者（聽朝一件具體會產生證據嘅事）。每位 2 至 3 點，每點最多 20 字，動詞行先，每位畀燈 🟢🟡🔴。然後交叉批評（只講「一位成員」），然後主席裁決，可以判買家輸。\n只回覆 JSON，冇 fence：{"summary":"一句30字內","advisors":[{"name":"","lamp":"","points":[""]}],"critique":{"strongest":"","weakest":"","clash":["",""]},"chairman":{"lamp":"","decision":"","risk":"","action":"","overruled":""}}`;}
 function summaryPrompt(r){return `${RULES}\n為新手寫一頁總結：\n${facts(r)}\n只回覆 JSON，冇 fence：{"headline":"一句講晒值唔值得睇（25字內）","why":["點解值得留意，3點，每點20字內"],"risks":["主要風險，3點，每點20字內"],"short":"短線（幾日至幾星期）建議一句","mid":"中線（1至3個月）建議一句","long":"長線（半年以上）建議一句，只可以用 200 日線同趨勢講，唔好作基本面","plan":"用買入區、止蝕、T1、T2 寫一個具體執行計劃，60字內","verdict":"🟢|🟡|🔴"}`;}
 function newsPrompt(r,items){return `${RULES}\n以下係關於 ${r.code} ${r.name} 嘅最近新聞（標題＋摘錄）。逐條判斷對股價係利好、利淡定中性，一句理由。唔好作新聞，冇資料就話冇。\n${items.map((n,i)=>`[${i}] ${n.title}\n${(n.excerpts||[]).join(' ').slice(0,400)}\n日期：${n.publish_date||'?'}`).join('\n\n')}\n只回覆 JSON，冇 fence：{"overall":"整體一句（30字內）","overallLamp":"🟢|🟡|🔴","items":[{"i":0,"verdict":"利好|利淡|中性","reason":"20字內"}]}`;}
-async function askJSON(el,prompt,render,useSearch){ try{ render(await claudeJSON(prompt,useSearch)); }
+async function askJSON(el,prompt,render,useSearch){ const base=(el.textContent||'生成緊…').replace(/（[^）]*秒）/,''), t0=Date.now(); let st='', res, err;
+  const draw=()=>{ el.innerHTML='<div class="muted">'+esc(base)+'<br>'+esc(st||'等緊 Claude…')+' · '+Math.round((Date.now()-t0)/1000)+' 秒</div>'; }; draw(); const tk=setInterval(draw,1000);
+  try{ res=await claudeJSON(prompt,useSearch,m=>{ st=progText(m); }); }catch(e){ err=e; } clearInterval(tk);
+  try{ if(err) throw err; render(res); }
   catch(e){ el.innerHTML='<div class="err">'+esc(e&&e.code==='nokey'?'呢個功能要 Anthropic API key，喺底部「設定」貼。':'生成失敗：'+(e&&e.message||''))+'</div>'; } }
 function showCouncil(el,res){const ch=res.chairman||{},cr=res.critique||{};
   el.innerHTML=`<div class="sum">${esc(res.summary)}</div>`+(res.advisors||[]).map(m=>`<div class="m"><b>${esc(m.lamp)} ${esc(m.name)}</b><ul>${(m.points||[]).map(p=>'<li>'+esc(p)+'</li>').join('')}</ul></div>`).join('')+
