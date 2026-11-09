@@ -171,6 +171,8 @@ table.rv{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}table
 
 <details><summary>設定（Claude 功能，選填）</summary>
   <div class="muted">開會、總結＋論據、新聞分析要 Anthropic API key（console.anthropic.com）。冇 key 就淨係睇訊號。Key 只存喺你部機。</div>
+  <div class="muted">有 relay 嘅話，只要打一次 relay 密碼，唔使貼 key（key 放咗喺 relay）。</div>
+  <div class="ctl"><input id="relayPass" type="password" placeholder="Relay 密碼" autocomplete="current-password"><button class="btn sm" id="relaySave">儲存</button></div>
   <div class="ctl"><input id="anKey" type="password" placeholder="Anthropic key sk-ant-…" autocomplete="off"><button class="btn sm" id="anSave">儲存</button><button class="btn sec sm" id="anTestBtn">測試</button></div><div class="small" id="anTest"></div>
   <div class="muted">美股即時價（免費）：去 finnhub.io 登記，攞 API key 貼呢度。有 key 嘅話美股 tab 每 10 秒更新，真即時。港股 Finnhub 免費版冇，維持 15 分鐘延遲。</div>
   <div class="ctl"><input id="fhKey" type="password" placeholder="Finnhub key" autocomplete="off"><button class="btn sm" id="fhSave">儲存</button></div>
@@ -619,7 +621,7 @@ function renderChat(){ const log=$('cLog'), m=chatMsgs(); const r=chatCode&&stat
   $('cChips').innerHTML=q.map(x=>`<button data-q="${esc(x)}">${esc(x)}</button>`).join(''); }
 function openChat(code){ chatCode=code||null; $('chat').classList.add('show'); document.body.style.overflow='hidden'; renderChat(); try{ history.pushState({c:1},''); }catch(e){} }
 function closeChat(back=true){ if(!$('chat').classList.contains('show')) return; $('chat').classList.remove('show'); if(!dCode) document.body.style.overflow=''; if(back&&history.state&&history.state.c) try{ ignorePop=true; history.back(); }catch(e){} }
-async function chatSend(text){ text=(text||'').trim(); if(!text&&pendImgs.length) text='幫我睇下呢張圖，用簡單說話解釋，同埋講有咩要留意。'; if(!text||chatBusy) return; if(!anKey()){ toast('要先喺底部「設定」貼 Anthropic API key'); return; }
+async function chatSend(text){ text=(text||'').trim(); if(!text&&pendImgs.length) text='幫我睇下呢張圖，用簡單說話解釋，同埋講有咩要留意。'; if(!text||chatBusy) return; if(!hasClaude()){ toast('要先喺底部「設定」貼 Anthropic API key'); return; }
   const k=chatKey(), m=chatMsgs(); const ids=pendImgs.map(p=>{ const id='i'+Date.now()+Math.random().toString(36).slice(2,6); IMGS[id]=p.full; return id; }); const um={role:'user',content:text}; if(ids.length){ um.imgs=pendImgs.map(p=>p.thumb); um.imgIds=ids; } m.push(um); pendImgs=[]; renderPrev(); try{ LS.set(k,m.slice(-40)); }catch(e){ m.forEach(x=>{ if(x.imgs) x.imgs=[]; }); LS.set(k,m.slice(-40)); } $('cIn').value=''; $('cIn').style.height=''; chatBusy=true; renderChat();
   try{ const msgs=m.filter(x=>!x.err).slice(-16).map(x=>{ if(x.role!=='user'||!x.imgIds) return {role:x.role,content:x.content}; const have=x.imgIds.filter(id=>IMGS[id]); const blocks=have.map(id=>({type:'image',source:{type:'base64',media_type:'image/jpeg',data:IMGS[id].split(',')[1]}})); const miss=x.imgIds.length-have.length; return {role:'user',content:[...blocks,{type:'text',text:x.content+(miss?`\n（之前上載咗 ${miss} 張相，但已經唔喺記憶，請用之前嘅回覆）`:'')}]}; });
     const body={model:MODEL,max_tokens:8000,output_config:{effort:'low'},system:chatSystem(),messages:msgs}; if($('cWeb').checked) body.tools=[{type:'web_search_20260209',name:'web_search',max_uses:2}];
@@ -647,9 +649,16 @@ function renderAll(){ renderProf(); renderMarket(); renderCards(); renderSummary
 /* ---------- Claude via Anthropic API (optional key) ---------- */
 const anKey=()=>LS.get('an_key','');
 const MODEL='claude-opus-5-5';
+/* Relay（relay/worker.js，放喺 Cloudflare）：key 放喺 relay，網站只需要 relay 密碼 */
+const RELAY_URL=LS.get('relay_url','')||'';
+const relayPass=()=>LS.get('relay_pass','');
+const useRelay=()=>!!(RELAY_URL&&relayPass());
+const hasClaude=()=>useRelay()||!!anKey();
 function parseLooseJSON(t){ t=t.replace(/```json|```/g,'').trim(); const starts=[]; for(let k=0;k<t.length;k++) if(t[k]==='{') starts.push(k);
   const end=t.lastIndexOf('}'); for(const a of starts){ try{ return JSON.parse(t.slice(a,end+1)); }catch(e){} } throw new Error('Claude 回覆唔係完整 JSON（可能太長被截斷），再撳一次'); }
 function apiErr(status,j){ const m=(j&&j.error&&j.error.message)||''; const ty=(j&&j.error&&j.error.type)||'';
+  if(ty==='relay_auth_error') return 'Relay 密碼唔啱：去「設定」再打一次。';
+  if(ty==='relay_config_error') return 'Relay 未設定好（Cloudflare 未加 ANTHROPIC_API_KEY 或 RELAY_PASS）。';
   if(status===401||ty==='authentication_error') return 'API key 唔啱：重新喺 console.anthropic.com 整一條，貼落「設定」。';
   if(/credit balance/i.test(m)) return '戶口冇餘額：去 console.anthropic.com → Billing 增值。';
   if(status===403||ty==='permission_error') return 'Key 冇權限（'+m+'）';
@@ -658,9 +667,11 @@ function apiErr(status,j){ const m=(j&&j.error&&j.error.message)||''; const ty=(
   return 'API 錯誤 '+status+'：'+m; }
 /* 用 streaming：邊收邊砌返成個回覆，onProg 可以顯示進度；90 秒乜都收唔到就當斷線，唔會一直轉 */
 const STALL='Claude 90 秒冇回應（網絡斷咗，或者手機轉咗去第二個 app），再撳一次。';
-async function claudeRaw(body,onProg){ const key=anKey(); if(!key) throw {code:'nokey'};
+async function claudeRaw(body,onProg){ if(!hasClaude()) throw {code:'nokey'};
+  const relay=useRelay(), headers={'content-type':'application/json','anthropic-version':'2023-06-01','anthropic-beta':'server-side-fallback-2026-07-01'};
+  if(relay) headers['x-relay-pass']=relayPass(); else { headers['x-api-key']=anKey(); headers['anthropic-dangerous-direct-browser-access']='true'; }
   const ac=new AbortController(); let idle; const poke=()=>{ clearTimeout(idle); idle=setTimeout(()=>ac.abort(),90000); }; poke();
-  let r; try{ r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',signal:ac.signal,headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-beta':'server-side-fallback-2026-07-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({...body,fallbacks:'default',stream:true})}); }
+  let r; try{ r=await fetch(relay?RELAY_URL.replace(/\/+$/,'')+'/v1/messages':'https://api.anthropic.com/v1/messages',{method:'POST',signal:ac.signal,headers,body:JSON.stringify({...body,fallbacks:'default',stream:true})}); }
   catch(e){ clearTimeout(idle); throw new Error(ac.signal.aborted?STALL:'連唔到 Anthropic（網絡或者瀏覽器阻擋）：'+e.message); }
   if(!r.ok){ clearTimeout(idle); let j=null; try{ j=await r.json(); }catch(e){} throw new Error(apiErr(r.status,j)); }
   const msg={content:[],stop_reason:null,stop_details:null,model:''}, js={};
@@ -934,6 +945,7 @@ async function finnhubTick(){ const key=LS.get('fh_key',''); if(!key||market!=='
 function startFinnhub(){ clearInterval(fhTimer); if(LS.get('fh_key','')) { finnhubTick(); fhTimer=setInterval(finnhubTick,10000); } }
 /* ---------- exports / settings ---------- */
 async function copyText(txt,msg){ try{ await navigator.clipboard.writeText(txt); toast(msg); }catch(e){ prompt('Copy：',txt); } }
+$('relayPass').value=relayPass(); $('relaySave').onclick=()=>{ LS.set('relay_pass',$('relayPass').value.trim()); toast(RELAY_URL?'已儲存 relay 密碼':'已儲存；relay 未設定好'); testKey(); };
 $('anKey').value=anKey(); $('anSave').onclick=()=>{ LS.set('an_key',$('anKey').value.trim().replace(/\s+/g,'')); toast('已儲存 key'); testKey(); }; $('anTestBtn').onclick=testKey;
 $('fhKey').value=LS.get('fh_key',''); $('fhSave').onclick=()=>{ LS.set('fh_key',$('fhKey').value.trim()); toast('已儲存，美股 tab 會每 10 秒更新'); startFinnhub(); };
 $('exTrades').onclick=()=>copyText(JSON.stringify(LS.get('pt_log',[]).filter(e=>e.status==='open').map(e=>({m:e.m,code:e.code,name:e.name,entry:e.entry,target:e.target,stop:e.stop,status:'open'})),null,1),'已 copy，貼落 trades.json');
