@@ -1,9 +1,6 @@
 name: scan
+# 收市掃描已經交俾 quotes-loop（.github/loop.sh）；呢個只留低手動行用。
 on:
-  schedule:
-    - cron: "20 8 * * 1-5"
-    - cron: "20 20 * * 1-5"
-    - cron: "20 21 * * 1-5"
   workflow_dispatch:
 permissions: { contents: write }
 concurrency: { group: scan-writes, cancel-in-progress: false }
