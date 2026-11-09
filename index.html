@@ -650,7 +650,7 @@ function renderAll(){ renderProf(); renderMarket(); renderCards(); renderSummary
 const anKey=()=>LS.get('an_key','');
 const MODEL='claude-opus-5-5';
 /* Relay（relay/worker.js，放喺 Cloudflare）：key 放喺 relay，網站只需要 relay 密碼 */
-const RELAY_URL=LS.get('relay_url','')||'';
+const RELAY_URL=LS.get('relay_url','')||'https://decision-card-relay.eddie831.workers.dev';
 const relayPass=()=>LS.get('relay_pass','');
 const useRelay=()=>!!(RELAY_URL&&relayPass());
 const hasClaude=()=>useRelay()||!!anKey();
