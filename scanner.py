@@ -87,16 +87,20 @@ def analyse(df, m):
     hi20 = float(h.iloc[-21:-1].max()); lo10 = float(l.tail(int(prm("lookLow", 10))).min()); hi60 = float(h.tail(60).max())
     av20 = float(v.iloc[:-1].tail(20).mean()) or float(v.iloc[-1]); volR = float(v.iloc[-1]) / av20 if av20 else 1.0
     trend = "up" if last > s20 > s50 else "down" if last < s20 < s50 else "side"
-    entry = last; stop = max(lo10 - 0.2 * atr, entry - prm("stopATR", 2.5) * atr)
+    # 止蝕：backtest 2022–26 顯示 3 ATR 比 2.5 好；再窄（2 ATR、當日低位）反而更差
+    entry = last; stop = max(lo10 - 0.2 * atr, entry - prm("stopATR", 3.0) * atr)
     target = hi60 if hi60 > entry * 1.03 else entry + prm("targetMult", 2.2) * (entry - stop)
     risk = entry - stop; riskP = risk / entry * 100; rewP = (target - entry) / entry * 100; rr = rewP / riskP if riskP > 0 else 0
     lamp, word, why, setup = "🟡", "等", [], "none"
     over = chg > prm("overATR", 2) * atrP; band = prm("pullBand", 0.03)
     pullback = trend == "up" and s20 * (1 - band) <= entry <= s20 * (1 + band); breakout = last > hi20 and volR > prm("volRMin", 1.3)
+    chased = breakout and last > hi20 * (1 + prm("chaseMax", 0.05))  # 過咗突破位 5% 唔追
     if trend == "down": lamp, word, setup = "🔴", "唔做", "down"; why.append("股價喺 20 日線同 50 日線之下，趨勢向下。")
     elif over: word, setup = "等回調", "over"; why.append(f"今日升 {chg:+.1f}%，超過兩個 ATR，追入 R:R 變差。")
+    elif chased: word, setup = "等回調", "over"; why.append(f"突破咗，但已經高過 20 日高位 {(last / hi20 - 1) * 100:.0f}%，唔追。")
     elif breakout: lamp, word, setup = "🟢", "突破留意", "breakout"; why.append(f"收市高過 20 日高位，成交係平時 {volR:.1f} 倍。")
-    elif pullback: lamp, word, setup = "🟢", "回調企穩", "pullback"; why.append("上升趨勢中回到 20 日線附近，係較好嘅入場區。")
+    # 回調入市：backtest 4 年港美股都冇優勢（PF ≈ 1.0），所以只觀察、唔出 🟢
+    elif pullback: word, setup = "回調（觀察）", "pullback"; why.append("上升趨勢中回到 20 日線附近。回測顯示回調入市冇優勢，等佢再突破先做。")
     elif trend == "up": setup = "uptrend"; why.append("趨勢向上但未有突破或回調訊號。")
     else: why.append("橫行，方向未清。")
     if rr < prm("rrMin", 1.5) and lamp == "🟢": lamp, word = "🟡", "R:R 唔夠"; why.append(f"回報 {rewP:+.1f}% 對風險 −{riskP:.1f}%，唔夠 {prm('rrMin',1.5)}:1，降級。")
@@ -115,6 +119,13 @@ def index_line(sym):
     try:
         h = yf.Ticker("HSTECH.HK" if sym == "^HSTECH" else sym).history(period="10d")["Close"].dropna(); last, prev = float(h.iloc[-1]), float(h.iloc[-2]); d = (last - prev) / prev * 100
         return {"close": round(last, 2), "chg": round(d, 2), "lamp": "🟢" if d > 0.5 else "🔴" if d < -0.5 else "🟡"}
+    except Exception: return None
+
+def index_trend(sym):
+    """指數收市高過 50 日線，而且 50 日線比 10 日前高 → True。攞唔到數據 → None（唔過濾）。"""
+    try:
+        c = yf.Ticker(sym).history(period="6mo")["Close"].dropna(); s50 = c.rolling(50).mean()
+        return bool(c.iloc[-1] > s50.iloc[-1] and s50.iloc[-1] > s50.iloc[-11])
     except Exception: return None
 
 def run(m):
@@ -149,10 +160,18 @@ def run(m):
             except Exception: pass
         print(f"{min(i+200, len(tickers))}/{len(tickers)} scanned, {len(results)} liquid")
     rows = list(results.values()); above = sum(1 for r in rows if r["aboveS20"]); p = above / len(rows) if rows else 0
+    # 大市過濾（O'Neil／「先睇大環境」）：指數企喺上升緊嘅 50 日線上，或者 ≥55% 股票喺 20 日線上，先出 🟢
+    idx_up = index_trend("^HSI" if m == "HK" else "^GSPC")
+    mkt_ok = idx_up is None or idx_up or p >= prm("breadthMin", 0.55)
+    if prm("marketFilter", True) and not mkt_ok:
+        for r in rows:
+            if r["lamp"] == "🟢":
+                r["lamp"], r["word"] = "🟡", "大市弱"
+                r["why"] += " 大市弱（指數喺 50 日線下、多數股票喺 20 日線下），回測顯示呢種時候突破多數失敗，唔做。"
     idx = {"HK": [("^HSI", "恒指"), ("^HSTECH", "科指")], "US": [("^GSPC", "S&P 500"), ("^IXIC", "Nasdaq")]}[m]
     out = {"market": m, "date": max(r["date"] for r in rows) if rows else str(dt.date.today()), "generated": dt.datetime.now(HKT).isoformat(timespec="minutes"),
            "indices": [{"sym": s, "name": n, **(index_line(s) or {})} for s, n in idx],
-           "breadth": {"above20": above, "total": len(rows), "lamp": "🟢" if p >= .6 else "🔴" if p <= .4 else "🟡"}, "all": rows}
+           "breadth": {"above20": above, "total": len(rows), "lamp": "🟢" if p >= .6 else "🔴" if p <= .4 else "🟡"}, "regime": {"indexUp": idx_up, "ok": bool(mkt_ok)}, "all": rows}
     (ROOT / f"signals_{m}.json").write_text(json.dumps(out, ensure_ascii=False))
     green = [r for r in rows if r["lamp"] == "🟢"]; print("wrote", m, len(rows), "stocks,", len(green), "green")
     return out, green
