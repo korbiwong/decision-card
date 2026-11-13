@@ -46,7 +46,9 @@ def main():
     for m in ("HK", "US"):
         sig = load(f"signals_{m}.json", {})
         rows = sorted(sig.get("all", []), key=lambda r: (r["lamp"] != "🟢", -r.get("volR", 0)))
-        codes = list(dict.fromkeys([str(c) for c in wl.get(m, [])] + [r["code"] for r in rows[:24]] + [c for c in want[m]]))[:50]
+        # 加埋成交額最大嘅 40 隻（騰訊、NVDA 呢類多人睇嘅），唔好淨係得訊號股
+        big = [r["code"] for r in sorted(sig.get("all", []), key=lambda r: -r.get("turnover", 0))[:40]]
+        codes = list(dict.fromkeys([str(c) for c in wl.get(m, [])] + [r["code"] for r in rows[:24]] + [c for c in want[m]] + big))[:100]
         syms = [tick(m, c) for c in codes]
         if not syms: continue
         try:
