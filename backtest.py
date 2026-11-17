@@ -23,7 +23,7 @@ def simulate(df, m, regime=None, start=None):
     while i < n - 1:
         if start is not None and df.index[i] < start: i += 1; continue
         a = scanner.analyse(df.iloc[i - WIN:i + 1], m)
-        shadow = bool(a) and a["word"] == "突破但有賣壓"   # 俾 K 線降級咗嘅突破：照計，用嚟驗證降級啱唔啱
+        shadow = bool(a) and a["word"] in ("突破但有賣壓", "支撐反轉（觀察）")   # 降級咗／只觀察嘅訊號照計，用嚟驗證個決定啱唔啱
         if not a or not (a["lamp"] == "🟢" or shadow): i += 1; continue
         e = o[i + 1]
         if e <= a["stop"] or e >= a["target"]: i += 1; continue   # 開市已經裂口穿咗止蝕／目標，唔入
@@ -36,7 +36,7 @@ def simulate(df, m, regime=None, start=None):
         mk = None
         if regime is not None:
             r = regime.asof(df.index[i]); mk = None if pd.isna(r) else bool(r)
-        trades.append(dict(setup="breakout_bearK" if shadow else a["setup"], d=df.index[i], x=df.index[j], ret=(x / e - 1) * 100, r=(x - e) / risk, st=st, mk=mk))
+        trades.append(dict(setup="breakout_bearK" if a["setup"] == "breakout" and a.get("k") and a["k"]["dir"] == "bear" else a["setup"], d=df.index[i], x=df.index[j], ret=(x / e - 1) * 100, r=(x - e) / risk, st=st, mk=mk))
         i = j + 1
     return trades
 

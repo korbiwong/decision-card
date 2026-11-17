@@ -180,10 +180,13 @@ def analyse(df, m):
             target = hi60 if hi60 > entry * 1.03 else entry + prm("targetMult", 2.2) * (entry - stop)
             risk = entry - stop; riskP = risk / entry * 100; rewP = (target - entry) / entry * 100; rr = rewP / riskP if riskP > 0 else 0
             why = [f"跌到 {k['loc']} 支撐位出現「{k['n']}」：有人喺呢度接貨。止蝕放型態低位下面，跌穿即係支撐失效。"]
-            if prm("candleEntry", True): lamp, word = "🟢", "支撐反轉"; why.append("（新規則，未有回測數據，建議先 paper trade 睇成績。）")
-            else: word = "支撐反轉（觀察）"
+            # 回測 4 年（港美各 150 隻）：勝率 26–29%、PF 1.01／1.13，強弱市表現唔一致 → 冇優勢，預設只觀察
+            if prm("candleEntry", False): lamp, word = "🟢", "支撐反轉"
+            else: word = "支撐反轉（觀察）"; why.append("回測 4 年呢類入場勝率得約 27%、賺蝕打和，所以只觀察，等佢再突破先做。")
     elif k and k["dir"] == "bear":
-        if lamp == "🟢": lamp, word = "🟡", "突破但有賣壓"; why.append(f"今日收「{k['n']}」，喺{k['loc']}出現，賣壓開始出現，等下一日確認先追。")
+        # 回測 4 年：港股呢類突破 PF 0.87（正常突破 1.46）→ 降級；美股 PF 1.50（正常 1.61）仲有效 → 只提示
+        if lamp == "🟢" and not prm("bearKDemote", m == "HK"): why.append(f"今日收「{k['n']}」，有賣壓跡象；回測顯示美股呢類突破仍然有效，但注碼可以細啲。")
+        elif lamp == "🟢": lamp, word = "🟡", "突破但有賣壓"; why.append(f"今日收「{k['n']}」，喺{k['loc']}出現，賣壓開始出現，等下一日確認先追。")
         elif trend != "down": why.append(f"{k['loc']}出現「{k['n']}」，賣壓訊號，持貨留意、唔好加注。")
     if rr < prm("rrMin", 1.5) and lamp == "🟢": lamp, word = "🟡", "R:R 唔夠"; why.append(f"回報 {rewP:+.1f}% 對風險 −{riskP:.1f}%，唔夠 {prm('rrMin',1.5)}:1，降級。")
     if volR < 0.6: why.append("成交淡靜。")
