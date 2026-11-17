@@ -189,7 +189,12 @@ def analyse(df, m):
         if lamp == "🟢" and not prm("bearKDemote", m == "HK"): why.append(f"今日收「{k['n']}」，有賣壓跡象；回測顯示美股呢類突破仍然有效，但注碼可以細啲。")
         elif lamp == "🟢": lamp, word = "🟡", "突破但有賣壓"; why.append(f"今日收「{k['n']}」，喺{k['loc']}出現，賣壓開始出現，等下一日確認先追。")
         elif trend != "down": why.append(f"{k['loc']}出現「{k['n']}」，賣壓訊號，持貨留意、唔好加注。")
+    # 回測 4 年（港股突破）：長線向上先做 PF 1.64（前半 1.53／後半 1.72），全部照做得 1.42（1.36／1.50）；美股冇分別（1.55 對 1.56）所以唔過濾
+    if lamp == "🟢" and setup == "breakout" and prm("longUpOnly", m == "HK") and s200 and not (last > s200 and s50 > s200):
+        lamp, word = "🟡", "長線未向上"; why.append("突破咗，但股價或者 50 日線仲喺 200 日線之下。回測顯示港股呢類突破成績差好多，等長線轉上先做。")
     if rr < prm("rrMin", 1.5) and lamp == "🟢": lamp, word = "🟡", "R:R 唔夠"; why.append(f"回報 {rewP:+.1f}% 對風險 −{riskP:.1f}%，唔夠 {prm('rrMin',1.5)}:1，降級。")
+    # 出場：回測顯示「唔設目標、收市跌穿 20 日線先走」好過到目標就走晒（美股 PF 1.77 對 1.56，港股長線向上 1.88 對 1.64），勝率低啲但贏嗰啲單大好多
+    if lamp == "🟢" and setup == "breakout": why.append("出場：到目標價可以賣一半，其餘等收市跌穿 20 日線先走；回測顯示咁樣比到目標就走晒賺得多。")
     if volR < 0.6: why.append("成交淡靜。")
     zone = [max(k["low"], entry - atr), entry] if setup == "reversal" else [s20 * 0.98, s20 * 1.02] if setup in ("pullback", "uptrend") else [hi20, hi20 * 1.02] if setup == "breakout" else [s20, max(s20, entry - atr)] if setup == "over" else None
     lt = ("🟢" if last > s200 and s50 > s200 else "🔴" if last < s200 and s50 < s200 else "🟡") if s200 else "⚪"
