@@ -19,6 +19,7 @@ def simulate(df, m, regime=None, start=None):
     """一隻股由頭行到尾。同一時間只揸一注。回傳每單交易。"""
     df = df.dropna(subset=["Open", "High", "Low", "Close"]); n = len(df); trades = []
     o, h, l, c = (df[x].astype(float).values for x in ("Open", "High", "Low", "Close")); exp = int(scanner.prm("expiryDays", 20))
+    s20 = pd.Series(c).rolling(20).mean().values; alt = []
     i = WIN
     while i < n - 1:
         if start is not None and df.index[i] < start: i += 1; continue
@@ -27,6 +28,15 @@ def simulate(df, m, regime=None, start=None):
         if not a or not (a["lamp"] == "🟢" or shadow): i += 1; continue
         e = o[i + 1]
         if e <= a["stop"] or e >= a["target"]: i += 1; continue   # 開市已經裂口穿咗止蝕／目標，唔入
+        # 另一個玩法（細輸大贏）：同一個突破訊號，止蝕放喺支撐下面，唔設目標，收市跌穿 20 日線先走，最多揸 60 日
+        if a["setup"] == "breakout" and a.get("supStop") and e > a["supStop"] and a["supRisk"] <= 10:
+            vs = a["supStop"]; vo = None
+            for j in range(i + 1, min(i + 61, n)):
+                if l[j] <= vs: vo = (j, vs if j == i + 1 else min(o[j], vs)); break
+                if j > i + 1 and c[j] < s20[j]: vo = (j, c[j]); break
+            if vo is None: vo = (min(i + 60, n - 1), c[min(i + 60, n - 1)])
+            b = "最多輸≤3%" if a["supRisk"] <= 3 else "最多輸3–6%" if a["supRisk"] <= 6 else "最多輸6–10%"
+            alt.append(dict(setup="sup", d=df.index[i], x=df.index[vo[0]], ret=(vo[1] / e - 1) * 100, r=(vo[1] - e) / (e - vs), st="alt", mk=None, b=b))
         risk = e - a["stop"]; out = None
         for j in range(i + 1, min(i + 1 + exp, n)):
             if l[j] <= a["stop"]: out = (j, a["stop"] if j == i + 1 else min(o[j], a["stop"]), "stop"); break   # 同一日又穿止蝕又到目標 → 當止蝕（保守）
@@ -38,7 +48,7 @@ def simulate(df, m, regime=None, start=None):
             r = regime.asof(df.index[i]); mk = None if pd.isna(r) else bool(r)
         trades.append(dict(setup="breakout_bearK" if a["setup"] == "breakout" and a.get("k") and a["k"]["dir"] == "bear" else a["setup"], d=df.index[i], x=df.index[j], ret=(x / e - 1) * 100, r=(x - e) / risk, st=st, mk=mk))
         i = j + 1
-    return trades
+    return trades + alt
 
 def stats(tr):
     n = len(tr)
@@ -59,6 +69,12 @@ def summarise(m, trades):
                   ("前半段", [t for t in ts if t["d"] < mid]), ("後半段", [t for t in ts if t["d"] >= mid])]   # 前後半段表現差好遠 = 可能只係撞啱
         for g, v in groups:
             if v: rows.append(dict(m=m, setup=setup, g=g, **stats(v)))
+    alt = [t for t in trades if t["setup"] == "sup"]
+    if alt:
+        rows.append(dict(m=m, setup="sup", g="全部", **stats(alt)))
+        for b in ("最多輸≤3%", "最多輸3–6%", "最多輸6–10%"):
+            v = [t for t in alt if t["b"] == b]
+            if v: rows.append(dict(m=m, setup="sup", g=b, **stats(v)))
     return rows
 
 def regime_series(sym):
