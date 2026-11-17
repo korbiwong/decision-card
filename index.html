@@ -163,6 +163,7 @@ table.rv{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}table
   <div class="banner" id="rvBanner"></div>
   <div class="panel"><b>系統自己嘅成績表</b><div class="muted">每次掃描，所有 🟢 訊號同 🟡「等回調」都會自動記低做 prediction（唔使你撳），之後用真實價格判定啱唔啱。呢度係評估套規則，唔係評估你。</div></div>
   <div class="panel" id="rvStats"></div>
+  <div class="panel"><b>回測（歷史數據）</b><div class="muted">GitHub 用過去幾年嘅日線，逐日行同一套規則計出嚟。每次改規則或者參數會自動重跑。</div><div id="rvBT" class="muted">未有回測結果。</div></div>
   <div class="panel"><b>做錯咗嘅 🟢（最近）</b><div class="muted">睇返佢哋跌喺邊、止蝕係咪太窄、入場係咪追高。</div><div id="rvMiss"></div></div>
   <div class="panel"><div class="row"><div><b>10 日檢討</b><div class="muted">Claude 睇成績表同錯單，提議改參數；你逐項揀採唔採納。</div></div><button class="btn" id="rvRun">開始檢討</button></div><div id="rvOut"></div></div>
   <div class="panel"><b>而家用緊嘅參數</b><div class="params" id="rvParams"></div><div class="row" style="margin-top:8px"><button class="btn sec sm" id="rvReset">還原預設參數</button></div></div>
@@ -558,6 +559,7 @@ function renderDetail(){ if(!dCode) return; const rows=state[market].rows, i=row
       const down=a.trend==='down', tg=down?(res&&res[0]):(a.t2??a.target), tl=down?'目標價（反彈阻力'+(res?'：'+res[1]:'')+'）':'目標價（短線 T2）';
       return `<div class="kv"><div>${tl}<b>${Number.isFinite(tg)&&tg>p?money(tg)+d(tg):'已過目標／冇'}</b></div><div>支持位${sp?'（'+esc(sp.lbl)+'）':''}<b>${sp?money(sp.p)+d(sp.p):'冇近嘅支持位'}</b></div></div>`; })()}
     <div class="kv"><div>20 日線<b>${money(a.s20)}</b></div><div>50 日線<b>${a.s50?money(a.s50):'—'}</b></div><div>200 日線<b>${a.s200?money(a.s200):'—'}</b></div><div>20 日高位<b>${money(a.hi20)}</b></div><div>成交量（對平時）<b>${fx1(a.volR)}×</b></div><div>ATR（每日上落）<b>${fx1(a.atrP)}%</b></div></div>
+    ${scenHTML(a)}
     <h4 style="margin:14px 0 6px">🧰 功能</h4>
     <div class="acts"><button class="btn" data-dchat="1" style="flex:1">💬 同 Claude 傾呢隻股</button></div>
     <div class="acts" style="flex-wrap:wrap"><button class="btn" data-council="${i}">👥 五人開會</button><button class="btn" data-dgen="${i}">✍️ 總結＋論據</button><button class="btn sec" data-news="${i}">📰 新聞分析</button></div>
@@ -724,8 +726,15 @@ async function claudeJSON(prompt,useSearch,onProg){
     break; }
   return parseLooseJSON(texts.join('')); }
 async function testKey(){ const out=$('anTest'); out.textContent='測試緊…'; try{ const j=await claudeRaw({model:MODEL,max_tokens:1000,output_config:{effort:'low'},messages:[{role:'user',content:'Reply with OK'}]}); out.innerHTML='<span style="color:var(--go)">✅ Key 用得（'+esc(j.model)+'）</span>'; }catch(e){ out.innerHTML='<span style="color:var(--stop)">❌ '+esc(e&&e.code==='nokey'?'未貼 key':e.message)+'</span>'; } }
+function scen(a){ if(!a.sup&&!a.res) return null; const up=a.res, dn=a.sup, v=P.volRMin??1.3;
+  return {bull:up?`收市企穩 ${money(up.p)}（${up.lbl}）以上，成交 ≥ 平時 ${v} 倍 → 升勢確認。收返落 ${money(up.p)} 以下就當假突破。`:'上面冇近嘅阻力：只要唔跌穿支撐，升勢照舊。',
+    mid:up&&dn?`喺 ${money(dn.p)}–${money(up.p)} 之間上落 → 未有方向，等其中一邊被打穿。`:'未有清晰區間。',
+    bear:dn?`收市跌穿 ${money(dn.p)}（${dn.lbl}）→ 支撐失效，睇淡。兩三日內收返上去就推翻。`:'下面冇近嘅支撐：跌穿止蝕位就走。'}; }
+function scenHTML(a){ const s=scen(a); if(!s) return ''; const m=a.rsi==null?'':a.rsi>=70?'偏熱（易回吐）':a.rsi<=30?'偏冷（超賣）':a.rsi>=50?'偏強':'偏弱';
+  return `<div class="panel" style="margin-top:10px"><b>📐 圖表解讀</b><div class="small">週線 ${a.tf&&a.tf.week||'⚪'} · 日線 ${a.tf&&a.tf.mid||'⚪'} · 動能 RSI ${a.rsi!=null?fx1(a.rsi)+' '+m:'—'}${a.k?' · K 線：'+esc(a.k.n)+'（'+esc(a.k.loc)+'）':''}</div>
+   <div class="small" style="margin-top:6px">🟢 <b>多頭情境</b>：${esc(s.bull)}<br>🟡 <b>中性情境</b>：${esc(s.mid)}<br>🔴 <b>空頭情境</b>：${esc(s.bear)}</div><div class="muted small">情境唔係保證，只係話你知邊個價位會確認或者推翻個睇法。</div></div>`; }
 function facts(r){const a=r.a;return `股票：${r.code} ${r.name}（${market==='HK'?'港股':'美股'}）｜現價 ${money(a.entry)}，今日 ${pct(a.chg)}
-規則訊號：${a.lamp} ${a.word}。趨勢 ${a.trend}；20 日線 ${money(a.s20)}，50 日線 ${a.s50?money(a.s50):'—'}，200 日線 ${a.s200?money(a.s200):'—'}；成交係平時 ${fx1(a.volR)} 倍；ATR ${fx1(a.atrP)}%
+規則訊號：${a.lamp} ${a.word}。趨勢 ${a.trend}；20 日線 ${money(a.s20)}，50 日線 ${a.s50?money(a.s50):'—'}，200 日線 ${a.s200?money(a.s200):'—'}；成交係平時 ${fx1(a.volR)} 倍；ATR ${fx1(a.atrP)}%${a.rsi!=null?`；RSI ${fx1(a.rsi)}；週線 ${a.tf.week}`:''}${a.sup?`；支撐 ${money(a.sup.p)}（${a.sup.lbl}）`:''}${a.res?`；阻力 ${money(a.res.p)}（${a.res.lbl}）`:''}${a.k?`；K 線型態 ${a.k.n}（${a.k.loc}）`:''}
 理想買入區 ${a.zone?money(a.zone[0])+'–'+money(a.zone[1]):'冇（趨勢向下）'}｜🛑止蝕 ${money(a.stop)}（−${fx1(a.riskP)}%）｜T1 ${money(a.t1)}｜T2 ${money(a.t2)}（+${fx1(a.rewP)}%）｜R:R ${fx1(a.rr)}:1
 系統理由：${a.why}`;}
 const RULES='你只可以解釋已計好嘅數字，唔可以自己作任何價位、百分比或訊號。用香港口語廣東話（嘅／喺／唔係／畀），短句，技術詞保留英文。';
@@ -755,8 +764,8 @@ window.showEvidence=showEvidence;function showEvidence(el,sm){ const src=e=>e&&e
    ${(sm.glossary||[]).length?`<h4>📖 今次用到嘅字</h4><ul>${sm.glossary.map(g=>'<li><b>'+esc(g.term)+'</b>：'+esc(g.explain)+'</li>').join('')}</ul>`:''}
    <div class="small" style="margin-top:8px">新聞 ${sm.newsLamp||'⚪'} · 所有價位嚟自規則引擎，Claude 只負責解釋。</div></div>`; }
 async function genSummary(r,el,h){ el.style.display='block'; el.innerHTML='<div class="muted">搵緊新聞同寫緊論據…（30–60 秒）</div>'; await askJSON(el,evidencePrompt(r,h),sm=>showEvidence(el,sm),true); }
-function newsPromptS(r){ return `${RULES}\n用 web_search 搵 ${r.name}（${r.code}）最近兩星期嘅新聞（最多 3 次搜尋）。讀者完全唔識股票。逐條判斷對股價利好、利淡定中性，用日常用語解釋「呢單新聞代表咩」同「點解會令股價升或跌」，唔好用術語。附標題同網址。唔好作新聞。最後畀新手一句「聽完新聞，應該點諗」。只回覆 JSON，冇 fence：{"overall":"30字內","overallLamp":"🟢|🟡|🔴","advice":"40字內，淺白","items":[{"title":"","url":"","date":"","verdict":"利好|利淡|中性","meaning":"呢單新聞代表咩，30字內","reason":"點解會令股價升或跌，30字內"}]}`; }
-async function newsFor(r,el){ el.innerHTML='<div class="muted">搵緊新聞…（20–40 秒）</div>'; await askJSON(el,newsPromptS(r),res=>{ const items=res.items||[]; el.innerHTML=`<div class="sum">${esc(res.overallLamp||'')} ${esc(res.overall)}</div>${res.advice?'<div class="kid">🧒 '+esc(res.advice)+'</div>':''}`+(items.length?items.map(n=>{const cls=n.verdict==='利好'?'good':n.verdict==='利淡'?'bad':'';return `<div class="news"><span class="v ${cls}">${esc(n.verdict||'—')}</span> ${esc(n.title)}<br>${n.meaning?'👉 '+esc(n.meaning)+'<br>':''}<span class="muted">${esc(n.reason||'')}</span> ${n.url?`<a href="${esc(n.url)}" target="_blank" rel="noopener">來源</a>`:''} <span class="small">${esc(n.date||'')}</span></div>`}).join(''):'<div class="muted">搵唔到相關新聞。</div>'); },true); }
+function newsPromptS(r){ return `${RULES}\n用 web_search 搵 ${r.name}（${r.code}）最近兩星期嘅新聞（最多 3 次搜尋）。讀者完全唔識股票。逐條判斷對股價利好、利淡定中性，用日常用語解釋「呢單新聞代表咩」同「點解會令股價升或跌」，唔好用術語。每條仲要講：影響係短期（幾日至幾星期）定長期、會影響邊個財務數字（收入／利潤率／現金流／估值）、市場而家假設咗啲乜。items 由最重要排到最唔重要。再講一句「邊樣嘢發生會令市場改變睇法」。附標題同網址。唔好作新聞。最後畀新手一句「聽完新聞，應該點諗」。只回覆 JSON，冇 fence：{"overall":"30字內","overallLamp":"🟢|🟡|🔴","advice":"40字內，淺白","flip":"邊樣嘢會改變市場反應，40字內","items":[{"title":"","url":"","date":"","verdict":"利好|利淡|中性","meaning":"呢單新聞代表咩，30字內","reason":"點解會令股價升或跌，30字內","horizon":"短期|長期","metric":"受影響嘅財務數字，15字內","assume":"市場假設咗乜，25字內"}]}`; }
+async function newsFor(r,el){ el.innerHTML='<div class="muted">搵緊新聞…（20–40 秒）</div>'; await askJSON(el,newsPromptS(r),res=>{ const items=res.items||[]; el.innerHTML=`<div class="sum">${esc(res.overallLamp||'')} ${esc(res.overall)}</div>${res.advice?'<div class="kid">🧒 '+esc(res.advice)+'</div>':''}${res.flip?'<div class="small">🔄 會改變睇法：'+esc(res.flip)+'</div>':''}`+(items.length?items.map(n=>{const cls=n.verdict==='利好'?'good':n.verdict==='利淡'?'bad':'';return `<div class="news"><span class="v ${cls}">${esc(n.verdict||'—')}</span> ${esc(n.title)}<br>${n.meaning?'👉 '+esc(n.meaning)+'<br>':''}<span class="muted">${esc(n.reason||'')}</span>${n.horizon||n.metric?`<br><span class="small">${esc([n.horizon,n.metric].filter(Boolean).join(' · '))}${n.assume?' · 市場假設：'+esc(n.assume):''}</span>`:''} ${n.url?`<a href="${esc(n.url)}" target="_blank" rel="noopener">來源</a>`:''} <span class="small">${esc(n.date||'')}</span></div>`}).join(''):'<div class="muted">搵唔到相關新聞。</div>'); },true); }
 document.addEventListener('click',async ev=>{
   const b=ev.target.closest('button'); if(!b) return; const rows=state[market].rows;
   if(b.dataset.council!=null){ const i=+b.dataset.council,r=rows[i],el=sink('council',r); if(el.style.display==='block'){el.style.display='none';return} el.style.display='block'; el.innerHTML='<div class="muted">開緊會…（10–40 秒）</div>'; askJSON(el,councilPrompt(r),res=>showCouncil(el,res)); }
@@ -830,6 +839,8 @@ function renderReview(){ const preds=LS.get(PK,[]), buys=preds.filter(p=>p.kind=
   html+=`</table><div class="small" style="margin-top:6px">勝率 = 到目標 ÷ 有結果；「平均」計埋到期未到目標／止蝕嘅實際回報。</div>`;
   html+=`<b style="display:block;margin-top:12px">🟡 等回調訊號</b><div class="muted">預測「會回落到買入區」：${W.n} 個，判定 ${W.done} 個，命中 ${waits.filter(p=>p.status==='correct').length} 個${W.done?'（'+(waits.filter(p=>p.status==='correct').length/W.done*100).toFixed(0)+'%）':''}。</div>`;
   $('rvStats').innerHTML=html;
+  getJSON('backtest.json').then(b=>{ const L={breakout:'突破','reversal':'支撐反轉','breakout_bearK':'突破但有賣壓 K（已降級）'};
+    $('rvBT').innerHTML=`<div class="small">${esc(b.period||'')} · ${b.stocks||0} 隻股 · ${esc(b.generated||'')}</div><table class="rv"><tr><th>分組</th><th>單數</th><th>勝率</th><th>平均贏</th><th>平均輸</th><th>PF</th><th>每單 R</th><th>最大回撤 R</th></tr>${(b.rows||[]).map(x=>`<tr><td>${esc(x.m)} ${esc(L[x.setup]||x.setup)}${x.g&&x.g!=='全部'?' · '+esc(x.g):''}</td><td>${x.n}</td><td>${x.win==null?'—':x.win+'%'}</td><td>${x.avgWin==null?'—':pct(x.avgWin)}</td><td>${x.avgLoss==null?'—':pct(x.avgLoss)}</td><td>${x.pf??'—'}</td><td>${x.expR??'—'}</td><td>${x.maxDD??'—'}</td></tr>`).join('')}</table><div class="muted small">${esc(b.note||'')}</div>`; }).catch(()=>{});
   const miss=buys.filter(p=>p.status==='stop'||(p.status==='expired'&&p.ret<0)).slice(0,8);
   $('rvMiss').innerHTML=miss.length?miss.map(p=>`<div class="miss"><b>${esc(p.code)} ${esc(p.name)}</b> ${p.date} ${p.setup==='breakout'?'突破':p.setup==='reversal'?'支撐反轉':'回調'} · 大市 ${p.mk}<br>入 $${p.entry.toFixed(2)} → ${p.status==='stop'?'第 '+p.days+' 日中止蝕 $'+p.stop.toFixed(2):'到期 '+pct(p.ret)}；最深跌 ${pct(p.mae||0)}；當時 R:R ${fx1(p.rr)}，成交 ${fx1(p.volR)}×，ATR ${fx1(p.atrP)}%</div>`).join(''):'<div class="muted">暫時冇做錯嘅 🟢，或者未有結果。</div>';
   $('rvParams').innerHTML=Object.keys(DEFP).map(k=>`${PDESC[k][0]}：<b>${P[k]===true?'開':P[k]===false?'關':P[k]}</b>${P[k]!==DEFP[k]?' <span class="tag">已改，預設 '+(DEFP[k]===false?'關':DEFP[k])+'</span>':''}`).join('<br>');

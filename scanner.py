@@ -114,6 +114,30 @@ def candle(df, atr, s20, s50):
         if d == "bear" and rose: return dict(n=name, dir="bear", ok=True, loc="升咗一大段嘅高位", low=float(klo))
     return None
 
+def chart_read(df, last, atr, s20, s50, s200, hi20):
+    """像專業人士咁讀圖：週線趨勢、動能（RSI）、最近嘅支撐同阻力。情境（多／中性／空）由網頁用呢啲價位砌出嚟。"""
+    c, h, l = df["Close"].astype(float), df["High"].astype(float).values, df["Low"].astype(float).values; n = len(df)
+    wk = None
+    try:
+        w = c.resample("W-FRI").last().dropna()
+        if len(w) >= 30:
+            w10, w30 = float(w.tail(10).mean()), float(w.tail(30).mean()); wl = float(w.iloc[-1])
+            wk = "up" if wl > w10 > w30 else "down" if wl < w10 < w30 else "side"
+    except Exception: pass
+    d = c.diff(); up = d.clip(lower=0).ewm(alpha=1 / 14, adjust=False).mean(); dn = (-d.clip(upper=0)).ewm(alpha=1 / 14, adjust=False).mean()
+    rsi = float(100 - 100 / (1 + up.iloc[-1] / dn.iloc[-1])) if dn.iloc[-1] > 0 else 100.0
+    sups, ress = [], []   # 波段高低位（前後 5 日入面最高／最低）
+    for j in range(max(5, n - 120), n - 5):
+        if l[j] == l[j - 5:j + 6].min() and l[j] < last - 0.25 * atr: sups.append((float(l[j]), "前低"))
+        if h[j] == h[j - 5:j + 6].max() and h[j] > last + 0.25 * atr: ress.append((float(h[j]), "前高"))
+    for v, lbl in ((s20, "20 日線"), (s50, "50 日線"), (s200, "200 日線")):
+        if v and v < last - 0.25 * atr: sups.append((v, lbl))
+        if v and v > last + 0.25 * atr: ress.append((v, lbl))
+    if hi20 > last + 0.25 * atr: ress.append((hi20, "20 日高位"))
+    sup = max(sups) if sups else None; res = min(ress) if ress else None
+    f = lambda x: {"p": round(x[0], 3), "lbl": x[1]} if x else None
+    return wk, round(rsi, 1), f(sup), f(res)
+
 def analyse(df, m):
     df = df.dropna(subset=["Close"]).copy()
     if len(df) < 55: return None
@@ -165,12 +189,13 @@ def analyse(df, m):
     if volR < 0.6: why.append("成交淡靜。")
     zone = [max(k["low"], entry - atr), entry] if setup == "reversal" else [s20 * 0.98, s20 * 1.02] if setup in ("pullback", "uptrend") else [hi20, hi20 * 1.02] if setup == "breakout" else [s20, max(s20, entry - atr)] if setup == "over" else None
     lt = ("🟢" if last > s200 and s50 > s200 else "🔴" if last < s200 and s50 < s200 else "🟡") if s200 else "⚪"
+    wk, rsi, sup, res = chart_read(df, last, atr, s20, s50, s200, hi20)
     recent = [{"d": str(i.date()), "h": round(float(r.High), 3), "l": round(float(r.Low), 3), "c": round(float(r.Close), 3)} for i, r in df.tail(8).iterrows()]
     R = lambda x: None if x is None else round(x, 3)
     return dict(lamp=lamp, word=word, why=" ".join(why), setup=setup, entry=R(entry), stop=R(stop), target=R(target), t1=R(entry + 1.5 * risk), t2=R(target),
                 zone=[R(zone[0]), R(zone[1])] if zone else None, rr=round(rr, 2), riskP=round(riskP, 2), rewP=round(rewP, 2), chg=round(chg, 2), trend=trend,
                 volR=round(volR, 2), atrP=round(atrP, 2), s20=R(s20), s50=R(s50), s200=R(s200), hi20=R(hi20), turnover=round(turnover / 1e6, 1), aboveS20=bool(last > s20),
-                tf={"today": "🟢" if chg > 1 else "🔴" if chg < -1 else "🟡", "mid": "🟢" if trend == "up" else "🔴" if trend == "down" else "🟡", "long": lt},
+                tf={"today": "🟢" if chg > 1 else "🔴" if chg < -1 else "🟡", "mid": "🟢" if trend == "up" else "🔴" if trend == "down" else "🟡", "long": lt, "week": {"up": "🟢", "down": "🔴", "side": "🟡"}.get(wk, "⚪")}, rsi=rsi, sup=sup, res=res,
                 date=str(df.index[-1].date()), recent=recent, k=({"n": k["n"], "dir": k["dir"], "ok": k["ok"], "loc": k["loc"]} if k else None))
 
 def index_line(sym):
