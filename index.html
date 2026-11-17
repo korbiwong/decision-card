@@ -106,6 +106,7 @@ table.rv{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}table
   <div class="prog" id="prog"><i></i></div>
   <div class="riskbox"><div class="small"><b>我嘅風險取向</b>（會改燈號、排名同建議買幾多）</div><div class="tabs" id="profTabs" style="margin-top:4px"><button class="tab" data-pf="cons">🐢 保守</button><button class="tab" data-pf="bal">⚖️ 平衡</button><button class="tab" data-pf="aggr">🚀 進取</button><button class="tab" data-pf="custom">⚙️ 自訂</button></div>
   <div class="ctl" style="margin:6px 0 0;align-items:center"><span class="small" style="white-space:nowrap">本金 $</span><input id="capital" type="number" inputmode="decimal" min="0" step="1000" style="flex:0 0 140px;max-width:140px"></div><div class="small" id="profNote" style="margin-top:4px"></div>
+  <details class="kid" id="pfBox" style="margin-top:6px"><summary>💼 用我嘅本金砌一個組合（買邊幾隻、每隻買幾多股）</summary><div id="pfPlan" class="small" style="margin-top:6px"></div></details>
   <details class="kid" id="profEdit" style="margin-top:6px"><summary>✏️ 自己調整條件（改任何一格就變「⚙️ 自訂」）</summary>
    <div class="pgrid">
     <label>賺蝕比最少<input type="number" step="0.1" min="0.5" max="10" data-pk="minRR" inputmode="decimal"></label>
@@ -439,6 +440,23 @@ function profFit(o,a,p,h,r){ const P_=PROF[prof]; const why=[];
   if(P_.minWin>0&&r&&h&&!why.length&&o.lamp==='🟢'){ const pr=probFor(r,o,h); if(pr&&pr.win*100<P_.minWin) why.push(`賺錢機會只有 ${Math.round(pr.win*100)}%，低過你要求嘅 ${P_.minWin}%`); }
   o.fit=!why.length; o.fitWhy=why;
   if(!o.fit&&o.lamp==='🟢'){ o.lamp='🟡'; o.word='唔啱你嘅取向'; o.why+=' 以你「'+P_.name+'」取向：'+why.join('；')+'。'; } }
+/* 用本金砌組合：只揀而家 🟢 而且啱你取向嘅，按分數由高到低；每隻嘅股數由「每單最多蝕本金 X%」決定，單一隻最多佔本金 25%，最多 5 隻 */
+function buildPortfolio(){ const P_=PROF[prof], MAXW=0.25, MAXN=5, out=[]; let cash=capital;
+  const c=state[market].rows.map(r=>({r,pl:plan(r,'short')})).filter(x=>x.pl&&x.pl.lamp==='🟢'&&x.pl.entry>x.pl.stop).sort((x,y)=>score(y.r)-score(x.r));
+  for(const {r,pl} of c){ if(out.length>=MAXN) break; const per=pl.entry-pl.stop; let sh=Math.floor(Math.min(capital*P_.riskPct/100/per, capital*MAXW/pl.entry, cash/pl.entry)); if(sh<1) continue;
+    const cost=sh*pl.entry; cash-=cost; out.push({r,pl,sh,cost,loss:sh*per}); }
+  return {items:out,cash,cands:c.length}; }
+function renderPortfolio(){ const el=$('pfPlan'); if(!el) return; const cur=CFG[market].cur, P_=PROF[prof], f0=n=>cur+Math.round(n).toLocaleString();
+  const tips=`<div class="muted" style="margin-top:8px"><b>買幾隻唔同嘅，定係一隻買多啲？</b><br>· 一隻買多啲唔會減風險，只會將輸贏放大：佢出事（業績差、停牌、裂口低開直接穿止蝕）你就一次過中晒。<br>· 分開幾隻可以減「單一隻出事」嘅風險，但同一個市場、同一個行業嘅股通常一齊跌，所以唔好揀晒同一行。呢個 app 冇行業資料，要你自己睇。<br>· 真正控制風險嘅係「每單最多蝕本金 ${P_.riskPct}%」同埋止蝕照做，唔係買幾多隻。<br>· 本金細就寧願買少啲隻數：每隻太細注，佣金同最低收費會食晒利潤。<br>· 回測入面突破訊號大約一半單會輸，所以連輸幾單係正常，注碼要細到連輸都頂得住。</div><div class="muted" style="margin-top:6px">呢個係按你設定嘅規則計出嚟嘅數，唔係投資建議；買唔買、買幾多由你決定。</div>`;
+  if(!(capital>0)){ el.innerHTML='先喺上面填本金。'+tips; return; }
+  const pf=buildPortfolio();
+  if(!pf.items.length){ el.innerHTML=`而家${market==='HK'?'港股':'美股'}冇啱你「${esc(P_.name)}」取向又買得起嘅 🟢（共 ${pf.cands} 隻 🟢）。冇好機會嘅時候，揸現金都係一個選擇。`+tips; return; }
+  const used=pf.items.reduce((s,x)=>s+x.cost,0), loss=pf.items.reduce((s,x)=>s+x.loss,0);
+  el.innerHTML=`<div>本金 ${f0(capital)}、「${esc(P_.name)}」：每單最多蝕 ${P_.riskPct}%（${f0(capital*P_.riskPct/100)}），單一隻最多佔本金 25%，最多 5 隻。</div>
+   <table class="rv"><tr><th>股票</th><th>買幾多股</th><th>約使</th><th>佔本金</th><th>止蝕價</th><th>跌到止蝕蝕</th></tr>${pf.items.map(x=>`<tr><td>${esc(x.r.code)} ${esc((x.r.name||'').slice(0,10))}</td><td><b>${x.sh}</b></td><td>${f0(x.cost)}</td><td>${fx1(x.cost/capital*100)}%</td><td>${money(x.pl.stop)}</td><td>${f0(x.loss)}</td></tr>`).join('')}
+   <tr><td><b>合計</b></td><td></td><td><b>${f0(used)}</b></td><td>${fx1(used/capital*100)}%</td><td></td><td><b>${f0(loss)}</b></td></tr></table>
+   <div style="margin-top:6px">剩低現金 ${f0(pf.cash)}。如果全部一齊跌到止蝕，總共蝕大約 <b>${f0(loss)}（本金 ${fx1(loss/capital*100)}%）</b>；裂口低開可以蝕多過呢個數。</div>
+   ${market==='HK'?'<div class="muted">港股要一手一手買：將股數向下調到每手股數嘅倍數（富途有顯示），唔夠一手就唔好買嗰隻。</div>':''}`+tips; }
 function sizeFor(pl){ const P_=PROF[prof], per=pl.entry-pl.stop; if(!(per>0)||!(capital>0)) return null; const maxLoss=capital*P_.riskPct/100; let sh=Math.floor(maxLoss/per); let cost=sh*pl.entry; if(cost>capital){ sh=Math.floor(capital/pl.entry); cost=sh*pl.entry; } return {sh,cost,loss:sh*per,maxLoss}; }
 /* Monte Carlo：假設冇人知明日升定跌（冇方向優勢），每日波幅由 ATR 估計，模擬 3000 次跟住個計劃做（止蝕／T1 賣一半之後止蝕移到買入價／T2）。 */
 const PROBC={};
@@ -661,7 +679,7 @@ $('chatFab').onclick=()=>openChat(dCode); $('cBack').onclick=()=>closeChat(); $(
 $('cSend').onclick=()=>chatSend($('cIn').value); $('cIn').addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); chatSend($('cIn').value); } });
 $('cChips').addEventListener('click',e=>{ const b=e.target.closest('[data-q]'); if(b) chatSend(b.dataset.q); });
 $('sumTabs').addEventListener('click',e=>{ const b=e.target.closest('.tab'); if(!b) return; sumH=b.dataset.h; LS.set('sumH',sumH); renderSummary(); });
-function renderAll(){ renderProf(); renderMarket(); renderCards(); renderSummary(); renderDetail(); renderLog(); renderWl(); renderReview(); renderReal(); renderAlerts(); }
+function renderAll(){ renderProf(); renderPortfolio(); renderMarket(); renderCards(); renderSummary(); renderDetail(); renderLog(); renderWl(); renderReview(); renderReal(); renderAlerts(); }
 
 /* ---------- Claude via Anthropic API (optional key) ---------- */
 const anKey=()=>LS.get('an_key','');
