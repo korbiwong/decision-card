@@ -71,6 +71,49 @@ def universe(m):
 
 def sma(s, n): return s.rolling(n).mean()
 
+def candle(df, atr, s20, s50):
+    """K 線型態 + 位置。型態只係話你知發生咗咩事；位置（有冇支撐／係咪高位）先決定值唔值得理。
+    回傳 {n 名, dir bull/bear, ok 位置啱唔啱, loc 位置描述, low 型態低位}，冇型態回 None。"""
+    n = len(df)
+    if n < 30 or atr <= 0: return None
+    o, h, l, c = (df[x].astype(float).values for x in ("Open", "High", "Low", "Close"))
+    if any(x != x for x in o[-3:]): return None
+    body = lambda i: abs(c[i] - o[i]); rng = lambda i: h[i] - l[i]
+    top = lambda i: max(o[i], c[i]); bot = lambda i: min(o[i], c[i])
+    green = lambda i: c[i] > o[i]; red = lambda i: c[i] < o[i]
+    big = lambda i: body(i) >= 0.7 * atr and body(i) >= 0.5 * rng(i)
+    hammer = lambda i: rng(i) >= 0.6 * atr and body(i) <= 0.35 * rng(i) and bot(i) - l[i] >= 2 * body(i) and h[i] - top(i) <= 0.2 * rng(i)
+    invham = lambda i: rng(i) >= 0.6 * atr and body(i) <= 0.35 * rng(i) and h[i] - top(i) >= 2 * body(i) and bot(i) - l[i] <= 0.2 * rng(i)
+    a, b, z = n - 3, n - 2, n - 1   # 最近三支
+    def ctx(k):   # 型態之前係咪跌咗／升咗一大段
+        st = n - k; pre_h, pre_l = h[max(0, st - 8):st], l[max(0, st - 8):st]
+        klo, khi = l[st:].min(), h[st:].max(); m = prm("kMoveATR", 2.5) * atr
+        fell = len(pre_h) > 0 and pre_h.max() - klo >= m and klo <= l[max(0, st - 20):st].min() + 0.5 * atr
+        rose = len(pre_l) > 0 and khi - pre_l.min() >= m and khi >= h[max(0, st - 20):st].max()
+        return fell, rose, klo, khi
+    cands = []   # (名, 方向, 用幾多支 K)；次序 = 優先次序
+    if big(a) and red(a) and body(b) <= 0.4 * body(a) and top(b) <= bot(a) + 0.25 * body(a) and green(z) and c[z] > (o[a] + c[a]) / 2: cands.append(("晨星", "bull", 3))
+    if big(a) and green(a) and body(b) <= 0.4 * body(a) and bot(b) >= top(a) - 0.25 * body(a) and red(z) and c[z] < (o[a] + c[a]) / 2: cands.append(("夜星", "bear", 3))
+    if red(b) and green(z) and o[z] <= c[b] and c[z] >= o[b] and body(z) > body(b) and body(z) >= 0.5 * atr: cands.append(("多頭吞噬", "bull", 2))
+    if green(b) and red(z) and o[z] >= c[b] and c[z] <= o[b] and body(z) > body(b) and body(z) >= 0.5 * atr: cands.append(("空頭吞噬", "bear", 2))
+    if red(b) and green(z) and abs(l[b] - l[z]) <= 0.1 * atr and min(bot(b) - l[b], bot(z) - l[z]) >= 0.25 * atr: cands.append(("平底", "bull", 2))
+    if big(b) and top(z) <= top(b) and bot(z) >= bot(b) and body(z) <= 0.5 * body(b): cands.append(("母子線", "bull" if red(b) else "bear", 2))
+    if hammer(z): cands += [("錘子線", "bull", 1), ("吊人線", "bear", 1)]
+    if invham(z): cands += [("倒錘子", "bull", 1), ("流星線", "bear", 1)]
+    for name, d, k in cands:
+        fell, rose, klo, khi = ctx(k)
+        if d == "bull" and fell:
+            st = n - k; loc = None
+            # 前低支撐：之前有個彈過（≥2 ATR）嘅波段低位，而家跌返落嚟喺附近守住
+            for j in range(st - 5, max(5, n - 120), -1):
+                if l[j] == l[j - 5:j + 6].min() and h[j + 1:st].max() - l[j] >= 2 * atr and l[j] - 0.5 * atr <= klo <= l[j] + 0.75 * atr and c[z] >= l[j]:
+                    loc = f"前低 {l[j]:.2f}"; break
+            if not loc and s50 and s20 > s50 and klo <= s50 * 1.01 and c[z] >= s50: loc = "50 日線"
+            if not loc and s50 and s20 > s50 and klo <= s20 * 1.01 and c[z] >= s20: loc = "20 日線"
+            return dict(n=name, dir="bull", ok=bool(loc), loc=loc or "下跌半路", low=float(klo))
+        if d == "bear" and rose: return dict(n=name, dir="bear", ok=True, loc="升咗一大段嘅高位", low=float(klo))
+    return None
+
 def analyse(df, m):
     df = df.dropna(subset=["Close"]).copy()
     if len(df) < 55: return None
@@ -103,9 +146,24 @@ def analyse(df, m):
     elif pullback: word, setup = "回調（觀察）", "pullback"; why.append("上升趨勢中回到 20 日線附近。回測顯示回調入市冇優勢，等佢再突破先做。")
     elif trend == "up": setup = "uptrend"; why.append("趨勢向上但未有突破或回調訊號。")
     else: why.append("橫行，方向未清。")
+    # K 線型態（位置啱先用）：支撐位見反轉 K → 可以入，止蝕放型態低位；突破日見頂部 K → 降級；下跌半路 → 忽略
+    k = candle(df, atr, s20, s50) if prm("candle", True) else None
+    if k and k["dir"] == "bull":
+        if not k["ok"]: why.append(f"見到「{k['n']}」，但喺下跌半路、附近冇支撐，直接忽略。")
+        elif trend == "down": why.append(f"「{k['n']}」出現喺{k['loc']}支撐，但趨勢仲向下，等企返 20 日線先算。")
+        elif setup in ("pullback", "uptrend", "none") and not (s200 and last < s200 and s50 < s200):
+            setup = "reversal"; stop = min(max(k["low"] - 0.2 * atr, entry - prm("stopATR", 3.0) * atr), entry - 0.5 * atr)
+            target = hi60 if hi60 > entry * 1.03 else entry + prm("targetMult", 2.2) * (entry - stop)
+            risk = entry - stop; riskP = risk / entry * 100; rewP = (target - entry) / entry * 100; rr = rewP / riskP if riskP > 0 else 0
+            why = [f"跌到 {k['loc']} 支撐位出現「{k['n']}」：有人喺呢度接貨。止蝕放型態低位下面，跌穿即係支撐失效。"]
+            if prm("candleEntry", True): lamp, word = "🟢", "支撐反轉"; why.append("（新規則，未有回測數據，建議先 paper trade 睇成績。）")
+            else: word = "支撐反轉（觀察）"
+    elif k and k["dir"] == "bear":
+        if lamp == "🟢": lamp, word = "🟡", "突破但有賣壓"; why.append(f"今日收「{k['n']}」，喺{k['loc']}出現，賣壓開始出現，等下一日確認先追。")
+        elif trend != "down": why.append(f"{k['loc']}出現「{k['n']}」，賣壓訊號，持貨留意、唔好加注。")
     if rr < prm("rrMin", 1.5) and lamp == "🟢": lamp, word = "🟡", "R:R 唔夠"; why.append(f"回報 {rewP:+.1f}% 對風險 −{riskP:.1f}%，唔夠 {prm('rrMin',1.5)}:1，降級。")
     if volR < 0.6: why.append("成交淡靜。")
-    zone = [s20 * 0.98, s20 * 1.02] if setup in ("pullback", "uptrend") else [hi20, hi20 * 1.02] if setup == "breakout" else [s20, max(s20, entry - atr)] if setup == "over" else None
+    zone = [max(k["low"], entry - atr), entry] if setup == "reversal" else [s20 * 0.98, s20 * 1.02] if setup in ("pullback", "uptrend") else [hi20, hi20 * 1.02] if setup == "breakout" else [s20, max(s20, entry - atr)] if setup == "over" else None
     lt = ("🟢" if last > s200 and s50 > s200 else "🔴" if last < s200 and s50 < s200 else "🟡") if s200 else "⚪"
     recent = [{"d": str(i.date()), "h": round(float(r.High), 3), "l": round(float(r.Low), 3), "c": round(float(r.Close), 3)} for i, r in df.tail(8).iterrows()]
     R = lambda x: None if x is None else round(x, 3)
@@ -113,7 +171,7 @@ def analyse(df, m):
                 zone=[R(zone[0]), R(zone[1])] if zone else None, rr=round(rr, 2), riskP=round(riskP, 2), rewP=round(rewP, 2), chg=round(chg, 2), trend=trend,
                 volR=round(volR, 2), atrP=round(atrP, 2), s20=R(s20), s50=R(s50), s200=R(s200), hi20=R(hi20), turnover=round(turnover / 1e6, 1), aboveS20=bool(last > s20),
                 tf={"today": "🟢" if chg > 1 else "🔴" if chg < -1 else "🟡", "mid": "🟢" if trend == "up" else "🔴" if trend == "down" else "🟡", "long": lt},
-                date=str(df.index[-1].date()), recent=recent)
+                date=str(df.index[-1].date()), recent=recent, k=({"n": k["n"], "dir": k["dir"], "ok": k["ok"], "loc": k["loc"]} if k else None))
 
 def index_line(sym):
     try:

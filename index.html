@@ -363,7 +363,7 @@ function renderCards(){ const list=visibleRows(), rows=state[market].rows;
   const missHTML=missing.map(c=>{const q=(quotes[market]||{})[c];return `<div class="card"><div class="row"><div class="stock"><a href="#" data-star="${esc(c)}" style="text-decoration:none;color:var(--wait)">★</a> ${esc(c)} ${esc(CFG[market].names[c]||'')}<small>唔喺掃描範圍（成交太少、股價太低，或者代號錯）</small></div></div>${q?`<div class="price">${money(q.p)} <span class="chg ${q.chg>=0?'up':'dn'}">${pct(q.chg)}</span></div>`:'<div class="muted">冇訊號。匯出 watch.json 之後 GitHub 會攞埋佢嘅報價。</div>'}</div>`}).join('');
   $('cards').innerHTML=missHTML+list.slice(0,80).map(r=>cardHTML(r,rows.indexOf(r))).join('')+(list.length>80?'<div class="panel muted">只顯示頭 80 隻（共 '+list.length+'）。</div>':''); }
 function zoneHTML(a){ const z=a.zone; return `<div class="zone">
-   <div class="z buy">理想買入區<b>${z?money(z[0])+' – '+money(z[1]):'唔買'}</b>${a.setup==='pullback'||a.setup==='uptrend'?'20 日線附近':a.setup==='breakout'?'突破位':a.setup==='over'?'等回調到呢度':'趨勢向下'}</div>
+   <div class="z buy">理想買入區<b>${z?money(z[0])+' – '+money(z[1]):'唔買'}</b>${a.setup==='reversal'?'支撐位附近':a.setup==='pullback'||a.setup==='uptrend'?'20 日線附近':a.setup==='breakout'?'突破位':a.setup==='over'?'等回調到呢度':'趨勢向下'}</div>
    <div class="z stop">止蝕（買咗就守）<b>${money(a.stop)}</b>−${fx1(a.riskP)}%</div>
    <div class="z sell">T1 先走一半<b>${money(a.t1)}</b>+${((a.t1-a.entry)/a.entry*100).toFixed(1)}%</div>
    <div class="z sell">T2 目標<b>${money(a.t2)}</b>+${fx1(a.rewP)}%</div></div>`; }
@@ -383,7 +383,7 @@ function plan(r,h){ const a=r.a, p=r.live?r.live.p:a.entry, atr=a.atrP/100*p, O=
   const mk=(o)=>{ if(!o.zone) o.sup=supportOf(r,p,o.extra); const risk=o.entry-o.stop; o.riskP=risk/o.entry*100; o.rewP=o.t2?(o.t2-o.entry)/o.entry*100:null; o.rr=o.t2&&risk>0?(o.t2-o.entry)/risk:null; profFit(o,a,p,h,r); o.ord=O[o.lamp]; return o; };
   if(h==='day'){ const d=dayFor(r); if(!d) return null; const z=d.word==='突破開市區間'?[d.orbH,d.orbH*1.005]:d.word==='回試 VWAP'?[d.vwap*0.998,d.vwap*1.004]:null;
     return mk({lamp:d.lamp,word:d.word,why:d.why,entry:d.entry,zone:z,zoneLbl:z?(d.word==='突破開市區間'?'突破位':'VWAP 附近'):'未有入場位',stop:d.stop,t1:d.entry+(d.target-d.entry)/2,t2:d.target,extra:d,sortKey:-(d.rr||0)}); }
-  if(h==='short') return mk({lamp:a.lamp,word:a.word,why:a.why,entry:a.entry,zone:a.zone,zoneLbl:a.setup==='pullback'||a.setup==='uptrend'?'20 日線附近':a.setup==='breakout'?'突破位':a.setup==='over'?'等回調到呢度':'趨勢向下',stop:a.stop,t1:a.t1,t2:a.t2,sortKey:-score(r)});
+  if(h==='short') return mk({lamp:a.lamp,word:a.word,why:a.why,entry:a.entry,zone:a.zone,zoneLbl:a.setup==='reversal'?'支撐位附近':a.setup==='pullback'||a.setup==='uptrend'?'20 日線附近':a.setup==='breakout'?'突破位':a.setup==='over'?'等回調到呢度':'趨勢向下',stop:a.stop,t1:a.t1,t2:a.t2,sortKey:-score(r)});
   if(h==='mid'){ if(!a.s50) return null; const s50=a.s50, up=p>s50&&a.s20>s50, down=p<s50&&a.s20<s50; let lamp,word,why;
     if(down){lamp='🔴';word='中線向下';why='股價同 20 日線都喺 50 日線之下，中線趨勢向下。';}
     else if(up&&p<=s50*1.06){lamp='🟢';word='近 50 日線';why=`中線向上，股價離 50 日線 ${((p/s50-1)*100).toFixed(1)}%，接近支持位。`;}
@@ -482,6 +482,7 @@ function kidHTML(r,pl,h){ const a=r.a, p=r.live?r.live.p:a.entry, chg=r.live?r.l
   if(a.s50&&p>a.s50) buy.push('股價高過兩個半月平均價：中期趨勢向上。');
   if(a.s200&&p>a.s200) buy.push('股價高過一年平均價：長期趨勢健康，順風而行。');
   if(a.setup==='breakout') buy.push(`升穿咗過去一個月最高位，而且成交係平時 ${fx1(a.volR)} 倍：好多人一齊追買，有機會開始一浪新升勢。`);
+  if(a.setup==='reversal'&&a.k) buy.push(`跌到${a.k.loc}支撐位出現「${a.k.n}」反轉 K 線：型態話你知有人接貨，位置話你知呢度有支撐，兩樣齊先算數。`);
   if(a.setup==='pullback') buy.push('上升途中跌返落一個月平均價附近：好似「減價」，係較安全嘅入場位。');
   if(h==='mid'&&a.s50&&p>a.s50&&p<=a.s50*1.06) buy.push('貼近 50 日線：中線嚟講係支持位，跌到呢度通常有人接貨。');
   if(h==='day'&&pl.extra){ const d=pl.extra; if(p>d.vwap) buy.push(`今日股價高過 VWAP ${money(d.vwap)}（今日所有成交嘅平均價）：今日入面買家較強。`); if(d.volR>1.3) buy.push(`今日成交係平時 ${fx1(d.volR)} 倍：有人留意緊。`); }
@@ -823,14 +824,14 @@ function renderReview(){ const preds=LS.get(PK,[]), buys=preds.filter(p=>p.kind=
   const bn=$('rvBanner'); if(!last){ bn.textContent='第一次檢討：等有 15 單以上有結果先有意義。而家先累積緊。'; bn.className='banner show'; } else if(days>=10){ bn.textContent=`距離上次檢討已經 ${days} 日，係時候撳「開始檢討」。`; bn.className='banner show'; } else bn.className='banner';
   const S=stats(buys), W=stats(waits), row=(k,st)=>`<tr><td>${esc(k)}</td><td>${st.n}</td><td>${st.done}</td><td>${st.winRate==null?'—':st.winRate.toFixed(0)+'%'}</td><td>${st.avg==null?'—':pct(st.avg)}</td></tr>`;
   let html=`<b>🟢 買入訊號</b><table class="rv"><tr><th>分組</th><th>訊號</th><th>有結果</th><th>勝率</th><th>平均</th></tr>${row('全部',S)}`;
-  for(const [k,v] of Object.entries(groupBy(buys,p=>p.setup==='breakout'?'突破':'回調'))) html+=row(k,stats(v));
+  for(const [k,v] of Object.entries(groupBy(buys,p=>p.setup==='breakout'?'突破':p.setup==='reversal'?'支撐反轉':'回調'))) html+=row(k,stats(v));
   for(const [k,v] of Object.entries(groupBy(buys,p=>'大市 '+p.mk))) html+=row(k,stats(v));
   for(const [k,v] of Object.entries(groupBy(buys,p=>p.m==='HK'?'港股':'美股'))) html+=row(k,stats(v));
   html+=`</table><div class="small" style="margin-top:6px">勝率 = 到目標 ÷ 有結果；「平均」計埋到期未到目標／止蝕嘅實際回報。</div>`;
   html+=`<b style="display:block;margin-top:12px">🟡 等回調訊號</b><div class="muted">預測「會回落到買入區」：${W.n} 個，判定 ${W.done} 個，命中 ${waits.filter(p=>p.status==='correct').length} 個${W.done?'（'+(waits.filter(p=>p.status==='correct').length/W.done*100).toFixed(0)+'%）':''}。</div>`;
   $('rvStats').innerHTML=html;
   const miss=buys.filter(p=>p.status==='stop'||(p.status==='expired'&&p.ret<0)).slice(0,8);
-  $('rvMiss').innerHTML=miss.length?miss.map(p=>`<div class="miss"><b>${esc(p.code)} ${esc(p.name)}</b> ${p.date} ${p.setup==='breakout'?'突破':'回調'} · 大市 ${p.mk}<br>入 $${p.entry.toFixed(2)} → ${p.status==='stop'?'第 '+p.days+' 日中止蝕 $'+p.stop.toFixed(2):'到期 '+pct(p.ret)}；最深跌 ${pct(p.mae||0)}；當時 R:R ${fx1(p.rr)}，成交 ${fx1(p.volR)}×，ATR ${fx1(p.atrP)}%</div>`).join(''):'<div class="muted">暫時冇做錯嘅 🟢，或者未有結果。</div>';
+  $('rvMiss').innerHTML=miss.length?miss.map(p=>`<div class="miss"><b>${esc(p.code)} ${esc(p.name)}</b> ${p.date} ${p.setup==='breakout'?'突破':p.setup==='reversal'?'支撐反轉':'回調'} · 大市 ${p.mk}<br>入 $${p.entry.toFixed(2)} → ${p.status==='stop'?'第 '+p.days+' 日中止蝕 $'+p.stop.toFixed(2):'到期 '+pct(p.ret)}；最深跌 ${pct(p.mae||0)}；當時 R:R ${fx1(p.rr)}，成交 ${fx1(p.volR)}×，ATR ${fx1(p.atrP)}%</div>`).join(''):'<div class="muted">暫時冇做錯嘅 🟢，或者未有結果。</div>';
   $('rvParams').innerHTML=Object.keys(DEFP).map(k=>`${PDESC[k][0]}：<b>${P[k]===true?'開':P[k]===false?'關':P[k]}</b>${P[k]!==DEFP[k]?' <span class="tag">已改，預設 '+(DEFP[k]===false?'關':DEFP[k])+'</span>':''}`).join('<br>');
   const hist=LS.get('reviews',[]); $('rvHist').innerHTML=hist.length?hist.map(h=>`<div class="miss">${h.date}：${h.n} 單有結果，勝率 ${h.winRate==null?'—':h.winRate.toFixed(0)+'%'}。${h.changes.length?'改咗：'+h.changes.map(c=>PDESC[c.param][0]+' '+c.from+'→'+c.to).join('；'):'冇改參數。'}</div>`).join(''):'未做過檢討。'; }
 function reviewPrompt(){ const preds=LS.get(PK,[]), buys=preds.filter(p=>p.kind==='buy'), S=stats(buys);
