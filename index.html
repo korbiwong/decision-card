@@ -445,22 +445,27 @@ function profFit(o,a,p,h,r){ const P_=PROF[prof]; const why=[];
 /* 用本金砌組合：只揀而家 🟢 而且啱你取向嘅，按分數由高到低；每隻嘅股數由「每單最多蝕本金 X%」決定，單一隻最多佔本金 25%，最多 5 隻 */
 const FEE_USD=2;   // 每次買或者賣收 US$2；港股用 7.8 折算
 function feeNow(){ return market==='HK'?FEE_USD*7.8:FEE_USD; }
-function buildPortfolio(){ const P_=PROF[prof], MAXW=0.25, MAXN=5, out=[], fee=feeNow(); let cash=capital;
-  const c=state[market].rows.map(r=>({r,pl:plan(r,'short')})).filter(x=>x.pl&&x.pl.lamp==='🟢'&&x.pl.entry>x.pl.stop).sort((x,y)=>score(y.r)-score(x.r));
-  for(const {r,pl} of c){ if(out.length>=MAXN) break; const per=pl.entry-pl.stop; let sh=Math.floor(Math.min(capital*P_.riskPct/100/per, capital*MAXW/pl.entry, cash/pl.entry)); const lot=(r.live&&r.live.lot)||1; sh=Math.floor(sh/lot)*lot; if(sh<1) continue;   // 富途有俾每手股數就向下調到一手嘅倍數
-    const cost=sh*pl.entry; if(2*fee>cost*0.01||cost+fee>cash) continue;   // 買賣手續費食多過注碼 1% 就唔值得買
-    cash-=cost+fee; out.push({r,pl,sh,cost,loss:sh*per+2*fee}); }
-  return {items:out,cash,cands:c.length}; }
+function buildPortfolio(){ const P_=PROF[prof], MAXN=5, fee=feeNow();
+  const MAXW=Math.min(1,Math.max(0.25,210*fee/capital));   // 單一隻最多佔本金 25%；本金細到一注唔夠抵手續費就少啲隻數、每隻大注啲
+  const all=state[market].rows.map(r=>({r,pl:plan(r,'short')})).filter(x=>x.pl&&x.pl.entry>x.pl.stop), byScore=(x,y)=>score(y.r)-score(x.r);
+  const green=all.filter(x=>x.pl.lamp==='🟢').sort(byScore);
+  // 冇 🟢 嘅日子：照砌一個「如果照買會點分配」嘅示範，揀排名最高嘅候補（唔係 🔴、趨勢向上），唔係買入訊號
+  let demo=false, c=green; if(!c.length){ demo=true; c=all.filter(x=>x.pl.lamp!=='🔴'&&x.r.a.trend==='up').sort(byScore); if(!c.length) c=all.filter(x=>x.pl.lamp!=='🔴').sort(byScore); }
+  const out=[]; let cash=capital;
+  for(const {r,pl} of c){ if(out.length>=MAXN) break; const per=pl.entry-pl.stop; let sh=Math.floor(Math.min(capital*P_.riskPct/100/per, capital*MAXW/pl.entry, (cash-fee)/pl.entry)); const lot=(r.live&&r.live.lot)||1; sh=Math.floor(sh/lot)*lot; if(sh<1) continue;   // 富途有俾每手股數就向下調到一手嘅倍數
+    const cost=sh*pl.entry; cash-=cost+fee; out.push({r,pl,sh,cost,loss:sh*per+2*fee,feeP:2*fee/cost*100}); }
+  return {items:out,cash,cands:c.length,greens:green.length,demo,maxW:MAXW}; }
 function renderPortfolio(){ const el=$('pfPlan'); if(!el) return; const cur=CFG[market].cur, P_=PROF[prof], f0=n=>cur+Math.round(n).toLocaleString();
   const tips=`<div class="muted" style="margin-top:8px"><b>買幾隻唔同嘅，定係一隻買多啲？</b><br>· 一隻買多啲唔會減風險，只會將輸贏放大：佢出事（業績差、停牌、裂口低開直接穿止蝕）你就一次過中晒。<br>· 分開幾隻可以減「單一隻出事」嘅風險，但同一個市場、同一個行業嘅股通常一齊跌，所以唔好揀晒同一行。呢個 app 冇行業資料，要你自己睇。<br>· 真正控制風險嘅係「每單最多蝕本金 ${P_.riskPct}%」同埋止蝕照做，唔係買幾多隻。<br>· 本金細就寧願買少啲隻數：每隻太細注，佣金同最低收費會食晒利潤。<br>· 回測入面突破訊號大約一半單會輸，所以連輸幾單係正常，注碼要細到連輸都頂得住。</div><div class="muted" style="margin-top:6px">呢個係按你設定嘅規則計出嚟嘅數，唔係投資建議；買唔買、買幾多由你決定。</div>`;
   if(!(capital>0)){ el.innerHTML='先喺上面填本金。'+tips; return; }
   const pf=buildPortfolio();
-  if(!pf.items.length){ el.innerHTML=`而家${market==='HK'?'港股':'美股'}冇啱你「${esc(P_.name)}」取向又買得起嘅 🟢（共 ${pf.cands} 隻 🟢）。冇好機會嘅時候，揸現金都係一個選擇。`+tips; return; }
+  if(!pf.items.length){ el.innerHTML=`本金 ${f0(capital)} 買唔起任何一隻候選股（${market==='HK'?'港股要成手買，一手已經超過你本金；開咗富途即時價先知每手股數':'最平嗰隻一股都貴過你可以用嘅錢'}）。`+tips; return; }
+  const banner=pf.demo?`<div style="border:1px solid var(--wait);background:var(--waits);border-radius:8px;padding:8px;margin-bottom:8px"><b>而家${market==='HK'?'港股':'美股'}冇 🟢 買入訊號</b>（多數係因為大市弱，回測顯示呢啲時候突破多數失敗）。按規則今日唔應該買。<br>下面只係示範「如果照買，本金會點分配」，揀嘅係排名最高嘅候補股（趨勢向上但未有訊號），<b>唔係買入建議</b>。</div>`:'';
   const used=pf.items.reduce((s,x)=>s+x.cost,0), loss=pf.items.reduce((s,x)=>s+x.loss,0);
-  el.innerHTML=`<div>本金 ${f0(capital)}、「${esc(P_.name)}」：每單最多蝕 ${P_.riskPct}%（${f0(capital*P_.riskPct/100)}），單一隻最多佔本金 25%，最多 5 隻。</div>
-   <table class="rv"><tr><th>股票</th><th>買幾多股</th><th>約使</th><th>佔本金</th><th>止蝕價</th><th>跌到止蝕蝕</th></tr>${pf.items.map(x=>`<tr><td>${esc(x.r.code)} ${esc((x.r.name||'').slice(0,10))}</td><td><b>${x.sh}</b></td><td>${f0(x.cost)}</td><td>${fx1(x.cost/capital*100)}%</td><td>${money(x.pl.stop)}</td><td>${f0(x.loss)}</td></tr>`).join('')}
+  el.innerHTML=banner+`<div>本金 ${f0(capital)}、「${esc(P_.name)}」：每單最多蝕 ${P_.riskPct}%（${f0(capital*P_.riskPct/100)}），單一隻最多佔本金 ${Math.round(pf.maxW*100)}%，最多 5 隻。</div>
+   <table class="rv"><tr><th>股票</th><th>買幾多股</th><th>約使</th><th>佔本金</th><th>止蝕價</th><th>跌到止蝕蝕</th></tr>${pf.items.map(x=>`<tr><td>${x.feeP>1?'⚠️ ':''}${esc(x.r.code)} ${esc((x.r.name||'').slice(0,10))}${pf.demo?' <span class="muted">'+esc(x.pl.word)+'</span>':''}</td><td><b>${x.sh}</b></td><td>${f0(x.cost)}</td><td>${fx1(x.cost/capital*100)}%</td><td>${money(x.pl.stop)}</td><td>${f0(x.loss)}</td></tr>`).join('')}
    <tr><td><b>合計</b></td><td></td><td><b>${f0(used)}</b></td><td>${fx1(used/capital*100)}%</td><td></td><td><b>${f0(loss)}</b></td></tr></table>
-   <div style="margin-top:6px">手續費：每次買或賣 ${f0(feeNow())}，買入呢 ${pf.items.length} 隻共 ${f0(feeNow()*pf.items.length)}，全部賣出再 ${f0(feeNow()*pf.items.length)}（「賣一半、其餘跟 20 日線」會多收一次）。上面「跌到止蝕蝕」已經計埋。如果計出嚟某隻股票總共只買到少過 ${f0(feeNow()*200)}（股數 × 股價，唔係每股股價），就唔會揀，因為手續費食多過 1%。</div>
+   <div style="margin-top:6px">手續費：每次買或賣 ${f0(feeNow())}，買入呢 ${pf.items.length} 隻共 ${f0(feeNow()*pf.items.length)}，全部賣出再 ${f0(feeNow()*pf.items.length)}（「賣一半、其餘跟 20 日線」會多收一次）。上面「跌到止蝕蝕」已經計埋。${pf.items.some(x=>x.feeP>1)?'⚠️ 嗰啲係買入總額（股數 × 股價）太細，買賣手續費已經食咗超過 1%：本金細嘅話，買少啲隻、每隻買多啲會抵啲。':''}</div>
    <div style="margin-top:6px">剩低現金 ${f0(pf.cash)}。如果全部一齊跌到止蝕，總共蝕大約 <b>${f0(loss)}（本金 ${fx1(loss/capital*100)}%）</b>；裂口低開可以蝕多過呢個數。</div>
    ${market==='HK'?(pf.items.every(x=>x.r.live&&x.r.live.lot)?'<div class="muted">股數已經按富途俾嘅每手股數向下調整。</div>':'<div class="muted">港股要一手一手買：將股數向下調到每手股數嘅倍數（富途有顯示），唔夠一手就唔好買嗰隻。開咗富途即時價就會自動調整。</div>'):''}`+tips; }
 function sizeFor(pl){ const P_=PROF[prof], per=pl.entry-pl.stop; if(!(per>0)||!(capital>0)) return null; const maxLoss=capital*P_.riskPct/100; let sh=Math.floor(maxLoss/per); let cost=sh*pl.entry; if(cost>capital){ sh=Math.floor(capital/pl.entry); cost=sh*pl.entry; } return {sh,cost,loss:sh*per,maxLoss}; }
