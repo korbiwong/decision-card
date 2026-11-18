@@ -192,6 +192,10 @@ def analyse(df, m):
     # 回測 4 年（港股突破）：長線向上先做 PF 1.64（前半 1.53／後半 1.72），全部照做得 1.42（1.36／1.50）；美股冇分別（1.55 對 1.56）所以唔過濾
     if lamp == "🟢" and setup == "breakout" and prm("longUpOnly", m == "HK") and s200 and not (last > s200 and s50 > s200):
         lamp, word = "🟡", "長線未向上"; why.append("突破咗，但股價或者 50 日線仲喺 200 日線之下。回測顯示港股呢類突破成績差好多，等長線轉上先做。")
+    # 回測 4 年（美股突破，已扣手續費）：離 52 週高位超過 15% 嘅突破 PF 得 1.06（前半 1.12／後半 1.03），貼近高位嘅 1.60；港股前後半段唔一致所以唔過濾
+    far = (1 - last / float(h.tail(252).max())) * 100; fmax = prm("farFromHighMax", 15 if m == "US" else None)
+    if lamp == "🟢" and setup == "breakout" and fmax is not None and far > fmax:
+        lamp, word = "🟡", "離高位太遠"; why.append(f"突破咗，但仲低過一年高位 {far:.0f}%。回測顯示美股呢類突破扣咗手續費之後差唔多冇得賺，貼近一年高位嘅先好。")
     if rr < prm("rrMin", 1.5) and lamp == "🟢": lamp, word = "🟡", "R:R 唔夠"; why.append(f"回報 {rewP:+.1f}% 對風險 −{riskP:.1f}%，唔夠 {prm('rrMin',1.5)}:1，降級。")
     # 出場：回測顯示「唔設目標、收市跌穿 20 日線先走」好過到目標就走晒（美股 PF 1.77 對 1.56，港股長線向上 1.88 對 1.64），勝率低啲但贏嗰啲單大好多
     if lamp == "🟢" and setup == "breakout": why.append("出場：到目標價可以賣一半，其餘等收市跌穿 20 日線先走；回測顯示咁樣比到目標就走晒賺得多。")
