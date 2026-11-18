@@ -178,6 +178,8 @@ table.rv{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}table
   <div class="ctl"><input id="anKey" type="password" placeholder="Anthropic key sk-ant-…" autocomplete="off"><button class="btn sm" id="anSave">儲存</button><button class="btn sec sm" id="anTestBtn">測試</button></div><div class="small" id="anTest"></div>
   <div class="muted">美股即時價（免費）：去 finnhub.io 登記，攞 API key 貼呢度。有 key 嘅話美股 tab 每 10 秒更新，真即時。港股 Finnhub 免費版冇，維持 15 分鐘延遲。</div>
   <div class="ctl"><input id="fhKey" type="password" placeholder="Finnhub key" autocomplete="off"><button class="btn sm" id="fhSave">儲存</button></div>
+  <div class="muted">富途即時價（港股＋美股）：喺呢部電腦開富途 OpenD，行 <code>python futu_bridge.py</code>，再撳「開」。每 5 秒更新，只喺行緊個程式嗰部電腦嘅瀏覽器有效；瀏覽器問你准唔准連本機網絡就撳允許。</div>
+  <div class="ctl" style="align-items:center"><button class="btn sm" id="ftToggle">開</button><span class="small" id="ftStat" style="margin-left:8px"></span></div>
   <div class="muted" style="padding-bottom:12px">匯出去 GitHub：<button class="btn sec sm" id="exTrades">paper trades</button> <button class="btn sec sm" id="exReal">真實買賣</button> <button class="btn sec sm" id="exParams">參數</button>（貼落 repo 對應嘅 json 檔）</div>
 </details>
 
@@ -315,9 +317,9 @@ async function scan(m){
   }catch(e){ if(m===market) $('status').innerHTML='<div class="err">'+esc(errMsg(e))+'。如果係第一次，要先喺 GitHub Actions 跑一次「scan」。</div>'; }
   bar.style.width='100%'; busy=false; $('refresh').disabled=false; setTimeout(()=>bar.style.width='0',800);
 }
-let fhQ={}, fhAt=null;
-function keepFH(q){ if(q===quotes) return q; if(fhAt&&(!q.at||new Date(fhAt)>new Date(q.at))&&Date.now()-new Date(fhAt)<15*60e3){ q.US=Object.assign({},q.US||{},fhQ); q.atFH=fhAt; } return q; }
-function applyQuotes(m){ const qm=quotes[m]||{}; for(const r of state[m].rows){ const q=qm[r.code]; if(!q) continue; r.live=q; r.liveAt=(m==='US'&&quotes.atFH)||quotes.at; if(q.d>r.a.date){ const b=r.bars.find(b=>b.d===q.d); if(!b) r.bars.push({d:q.d,h:q.h,l:q.l,c:q.p}); else { b.h=Math.max(b.h,q.h); b.l=Math.min(b.l,q.l); b.c=q.p; } } }
+let fhQ={}, fhAt=null, ftQ={HK:{},US:{}}, ftAt={HK:null,US:null};
+function keepFH(q){ if(q===quotes) return q; for(const m of ['HK','US']) if(ftAt[m]&&Date.now()-new Date(ftAt[m])<2*60e3) q[m]=Object.assign({},q[m]||{},ftQ[m]); if(fhAt&&(!q.at||new Date(fhAt)>new Date(q.at))&&Date.now()-new Date(fhAt)<15*60e3){ q.US=Object.assign({},q.US||{},fhQ); q.atFH=fhAt; } return q; }
+function applyQuotes(m){ const qm=quotes[m]||{}; for(const r of state[m].rows){ const q=qm[r.code]; if(!q) continue; r.live=q; r.liveAt=(ftQ[m][r.code]&&ftAt[m])||(m==='US'&&quotes.atFH)||quotes.at; if(q.d>r.a.date){ const b=r.bars.find(b=>b.d===q.d); if(!b) r.bars.push({d:q.d,h:q.h,l:q.l,c:q.p}); else { b.h=Math.max(b.h,q.h); b.l=Math.min(b.l,q.l); b.c=q.p; } } }
   for(const k of CFG[m].idx){ const q=qm[k]; if(q){ state[m].idx[k]=state[m].idx[k]||{name:CFG[m].idxName[k]}; state[m].idx[k].close=q.p; state[m].idx[k].chg=q.chg; state[m].idx[k].lamp=q.chg>0.5?'🟢':q.chg<-0.5?'🔴':'🟡'; } } }
 let PAUSED=false;
 async function live(){ if(busy||document.hidden||PAUSED) return; const m=market; if(!state[m].rows.length) return;
@@ -445,7 +447,7 @@ const FEE_USD=2;   // 每次買或者賣收 US$2；港股用 7.8 折算
 function feeNow(){ return market==='HK'?FEE_USD*7.8:FEE_USD; }
 function buildPortfolio(){ const P_=PROF[prof], MAXW=0.25, MAXN=5, out=[], fee=feeNow(); let cash=capital;
   const c=state[market].rows.map(r=>({r,pl:plan(r,'short')})).filter(x=>x.pl&&x.pl.lamp==='🟢'&&x.pl.entry>x.pl.stop).sort((x,y)=>score(y.r)-score(x.r));
-  for(const {r,pl} of c){ if(out.length>=MAXN) break; const per=pl.entry-pl.stop; let sh=Math.floor(Math.min(capital*P_.riskPct/100/per, capital*MAXW/pl.entry, cash/pl.entry)); if(sh<1) continue;
+  for(const {r,pl} of c){ if(out.length>=MAXN) break; const per=pl.entry-pl.stop; let sh=Math.floor(Math.min(capital*P_.riskPct/100/per, capital*MAXW/pl.entry, cash/pl.entry)); const lot=(r.live&&r.live.lot)||1; sh=Math.floor(sh/lot)*lot; if(sh<1) continue;   // 富途有俾每手股數就向下調到一手嘅倍數
     const cost=sh*pl.entry; if(2*fee>cost*0.01||cost+fee>cash) continue;   // 買賣手續費食多過注碼 1% 就唔值得買
     cash-=cost+fee; out.push({r,pl,sh,cost,loss:sh*per+2*fee}); }
   return {items:out,cash,cands:c.length}; }
@@ -458,9 +460,9 @@ function renderPortfolio(){ const el=$('pfPlan'); if(!el) return; const cur=CFG[
   el.innerHTML=`<div>本金 ${f0(capital)}、「${esc(P_.name)}」：每單最多蝕 ${P_.riskPct}%（${f0(capital*P_.riskPct/100)}），單一隻最多佔本金 25%，最多 5 隻。</div>
    <table class="rv"><tr><th>股票</th><th>買幾多股</th><th>約使</th><th>佔本金</th><th>止蝕價</th><th>跌到止蝕蝕</th></tr>${pf.items.map(x=>`<tr><td>${esc(x.r.code)} ${esc((x.r.name||'').slice(0,10))}</td><td><b>${x.sh}</b></td><td>${f0(x.cost)}</td><td>${fx1(x.cost/capital*100)}%</td><td>${money(x.pl.stop)}</td><td>${f0(x.loss)}</td></tr>`).join('')}
    <tr><td><b>合計</b></td><td></td><td><b>${f0(used)}</b></td><td>${fx1(used/capital*100)}%</td><td></td><td><b>${f0(loss)}</b></td></tr></table>
-   <div style="margin-top:6px">手續費：每次買或賣 ${f0(feeNow())}，買入呢 ${pf.items.length} 隻共 ${f0(feeNow()*pf.items.length)}，全部賣出再 ${f0(feeNow()*pf.items.length)}（「賣一半、其餘跟 20 日線」會多收一次）。上面「跌到止蝕蝕」已經計埋。注碼細過 ${f0(feeNow()*200)} 嘅股票唔會揀，因為手續費食多過 1%。</div>
+   <div style="margin-top:6px">手續費：每次買或賣 ${f0(feeNow())}，買入呢 ${pf.items.length} 隻共 ${f0(feeNow()*pf.items.length)}，全部賣出再 ${f0(feeNow()*pf.items.length)}（「賣一半、其餘跟 20 日線」會多收一次）。上面「跌到止蝕蝕」已經計埋。如果計出嚟某隻股票總共只買到少過 ${f0(feeNow()*200)}（股數 × 股價，唔係每股股價），就唔會揀，因為手續費食多過 1%。</div>
    <div style="margin-top:6px">剩低現金 ${f0(pf.cash)}。如果全部一齊跌到止蝕，總共蝕大約 <b>${f0(loss)}（本金 ${fx1(loss/capital*100)}%）</b>；裂口低開可以蝕多過呢個數。</div>
-   ${market==='HK'?'<div class="muted">港股要一手一手買：將股數向下調到每手股數嘅倍數（富途有顯示），唔夠一手就唔好買嗰隻。</div>':''}`+tips; }
+   ${market==='HK'?(pf.items.every(x=>x.r.live&&x.r.live.lot)?'<div class="muted">股數已經按富途俾嘅每手股數向下調整。</div>':'<div class="muted">港股要一手一手買：將股數向下調到每手股數嘅倍數（富途有顯示），唔夠一手就唔好買嗰隻。開咗富途即時價就會自動調整。</div>'):''}`+tips; }
 function sizeFor(pl){ const P_=PROF[prof], per=pl.entry-pl.stop; if(!(per>0)||!(capital>0)) return null; const maxLoss=capital*P_.riskPct/100; let sh=Math.floor(maxLoss/per); let cost=sh*pl.entry; if(cost>capital){ sh=Math.floor(capital/pl.entry); cost=sh*pl.entry; } return {sh,cost,loss:sh*per,maxLoss}; }
 /* Monte Carlo：假設冇人知明日升定跌（冇方向優勢），每日波幅由 ATR 估計，模擬 3000 次跟住個計劃做（止蝕／T1 賣一半之後止蝕移到買入價／T2）。 */
 const PROBC={};
@@ -993,6 +995,20 @@ async function finnhubTick(){ const key=LS.get('fh_key',''); if(!key||market!=='
   }catch(e){ liveLog={at:Date.now(),ok:false,msg:'Finnhub: '+(e&&e.message||'')}; renderMarket(); }
   fhBusy=false; }
 function startFinnhub(){ clearInterval(fhTimer); if(LS.get('fh_key','')) { finnhubTick(); fhTimer=setInterval(finnhubTick,10000); } }
+/* ---------- 富途報價橋（futu_bridge.py 喺本機行；港股＋美股即時） ---------- */
+const FT_URL='http://127.0.0.1:8766'; let ftTimer=null, ftBusy=false;
+function ftStatus(t,ok){ const el=$('ftStat'); if(el){ el.textContent=t; el.style.color=ok===false?'var(--stop)':ok?'var(--go)':''; } const b=$('ftToggle'); if(b) b.textContent=LS.get('futu_on',false)?'熄':'開'; }
+async function futuTick(){ if(!LS.get('futu_on',false)||document.hidden||ftBusy||PAUSED) return; ftBusy=true; const m=market;
+  try{ const open=LS.get(RK,[]).filter(e=>e.sell==null&&e.m===m).map(e=>e.code), al=LS.get('alerts',[]).filter(a=>!a.hit&&a.m===m).map(a=>a.code);
+    const codes=[...new Set([...open,...al,...watchOf(m),...visibleRows().slice(0,150).map(r=>r.code)])].slice(0,300);
+    if(codes.length){ const r=await fetch(FT_URL+'/quotes?m='+m+'&codes='+encodeURIComponent(codes.join(',')),{cache:'no-store'}); const j=await r.json(); if(j.error) throw new Error(j.error);
+      const n=Object.keys(j.q||{}).length; quotes[m]=Object.assign(quotes[m]||{},j.q); Object.assign(ftQ[m],j.q);
+      if(n){ ftAt[m]=new Date().toISOString(); applyQuotes(m); autoCheck(m); checkAlerts(m); liveLog={at:Date.now(),ok:true,msg:'富途即時 '+n+' 隻'}; renderAll(); }
+      ftStatus(n?`已連接：即時 ${n} 隻 · ${new Date().toLocaleTimeString()}`:'連到，但富途冇俾報價（行情權限？）',!!n); }
+  }catch(e){ ftStatus('連唔到 futu_bridge：部電腦有冇行緊個程式？（'+(e&&e.message||'')+'）',false); }
+  ftBusy=false; }
+function startFutu(){ clearInterval(ftTimer); if(LS.get('futu_on',false)){ ftStatus('連接緊…'); futuTick(); ftTimer=setInterval(futuTick,5000); } else ftStatus('未開'); }
+$('ftToggle').onclick=()=>{ LS.set('futu_on',!LS.get('futu_on',false)); startFutu(); };
 /* ---------- exports / settings ---------- */
 async function copyText(txt,msg){ try{ await navigator.clipboard.writeText(txt); toast(msg); }catch(e){ prompt('Copy：',txt); } }
 $('relayPass').value=relayPass(); $('relaySave').onclick=()=>{ LS.set('relay_pass',$('relayPass').value.trim()); toast(RELAY_URL?'已儲存 relay 密碼':'已儲存；relay 未設定好'); testKey(); };
@@ -1007,7 +1023,7 @@ checkVersion(); document.addEventListener('visibilitychange',()=>{ if(!document.
 /* ---------- boot ---------- */
 renderAll();
 applyLang();
-(async()=>{ await scan(market); liveTimer=setInterval(live,3*60*1000); startFinnhub(); document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ live(); finnhubTick(); } }); })();
+(async()=>{ await scan(market); liveTimer=setInterval(live,3*60*1000); startFinnhub(); startFutu(); document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ live(); finnhubTick(); futuTick(); } }); })();
 })();
 </script>
 </body></html>
