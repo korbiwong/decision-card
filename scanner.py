@@ -202,12 +202,16 @@ def analyse(df, m):
     # 離支撐（平台）幾遠 = 最多輸幾多：止蝕放喺支撐下面少少，跌穿就認錯；上面空間冇封頂
     supStop = sup["p"] - 0.2 * atr if sup else None
     supDist = (last - sup["p"]) / last * 100 if sup else None; supRisk = (last - supStop) / last * 100 if sup else None
+    # 網上常見技巧用嘅數（回測用嚟驗證邊樣真係有用）：離 52 週高位幾遠、半年升幅、MACD 方向、波幅收縮
+    hi52 = (1 - last / float(h.tail(252).max())) * 100; mom6 = (last / float(c.iloc[-127]) - 1) * 100 if len(df) > 127 else None
+    mac = c.ewm(span=12, adjust=False).mean() - c.ewm(span=26, adjust=False).mean(); macd = bool(mac.iloc[-1] > mac.ewm(span=9, adjust=False).mean().iloc[-1])
+    a60 = float(tr.rolling(60).mean().iloc[-1]) if len(df) >= 61 else None; vcr = float(tr.rolling(10).mean().iloc[-1]) / a60 if a60 else None
     recent = [{"d": str(i.date()), "h": round(float(r.High), 3), "l": round(float(r.Low), 3), "c": round(float(r.Close), 3)} for i, r in df.tail(8).iterrows()]
     R = lambda x: None if x is None else round(x, 3)
     return dict(lamp=lamp, word=word, why=" ".join(why), setup=setup, entry=R(entry), stop=R(stop), target=R(target), t1=R(entry + 1.5 * risk), t2=R(target),
                 zone=[R(zone[0]), R(zone[1])] if zone else None, rr=round(rr, 2), riskP=round(riskP, 2), rewP=round(rewP, 2), chg=round(chg, 2), trend=trend,
                 volR=round(volR, 2), atrP=round(atrP, 2), s20=R(s20), s50=R(s50), s200=R(s200), hi20=R(hi20), turnover=round(turnover / 1e6, 1), aboveS20=bool(last > s20),
-                tf={"today": "🟢" if chg > 1 else "🔴" if chg < -1 else "🟡", "mid": "🟢" if trend == "up" else "🔴" if trend == "down" else "🟡", "long": lt, "week": {"up": "🟢", "down": "🔴", "side": "🟡"}.get(wk, "⚪")}, rsi=rsi, sup=sup, res=res, supStop=R(supStop), supDist=R(supDist), supRisk=R(supRisk),
+                tf={"today": "🟢" if chg > 1 else "🔴" if chg < -1 else "🟡", "mid": "🟢" if trend == "up" else "🔴" if trend == "down" else "🟡", "long": lt, "week": {"up": "🟢", "down": "🔴", "side": "🟡"}.get(wk, "⚪")}, rsi=rsi, sup=sup, res=res, supStop=R(supStop), supDist=R(supDist), supRisk=R(supRisk), hi52=R(hi52), mom6=R(mom6), macd=macd, vcr=R(vcr),
                 date=str(df.index[-1].date()), recent=recent, k=({"n": k["n"], "dir": k["dir"], "ok": k["ok"], "loc": k["loc"]} if k else None))
 
 def index_line(sym):
