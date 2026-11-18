@@ -1,0 +1,23 @@
+name: backtest
+# 回測規則引擎，寫 backtest.json（網頁「檢討」頁會顯示）。
+# 手動行，或者每次改咗規則（scanner.py／backtest.py）或參數（params.json）就自動重跑。
+on:
+  workflow_dispatch:
+  push:
+    paths: [scanner.py, backtest.py, params.json]
+permissions: { contents: write }
+concurrency: { group: "backtest-${{ github.ref }}", cancel-in-progress: true }
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install yfinance requests pandas openpyxl lxml
+      - run: python backtest.py HK US
+      - run: |
+          git config user.name backtest; git config user.email backtest@users.noreply.github.com
+          git add backtest.json; git diff --cached --quiet || git commit -m "backtest $(date +%F)"
+          for i in 1 2 3 4 5; do git pull --rebase -X theirs && git push && break; sleep 10; done
