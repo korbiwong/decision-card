@@ -105,7 +105,7 @@ table.rv{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}table
   <div class="mk" id="mk" style="margin-top:10px"></div>
   <div class="prog" id="prog"><i></i></div>
   <div class="riskbox"><div class="small"><b>我嘅風險取向</b>（會改燈號、排名同建議買幾多）</div><div class="tabs" id="profTabs" style="margin-top:4px"><button class="tab" data-pf="cons">🐢 保守</button><button class="tab" data-pf="bal">⚖️ 平衡</button><button class="tab" data-pf="aggr">🚀 進取</button><button class="tab" data-pf="custom">⚙️ 自訂</button></div>
-  <div class="ctl" style="margin:6px 0 0;align-items:center"><span class="small" style="white-space:nowrap">本金 $</span><input id="capital" type="number" inputmode="decimal" min="0" step="1000" style="flex:0 0 140px;max-width:140px"></div><div class="small" id="profNote" style="margin-top:4px"></div>
+  <div class="ctl" style="margin:6px 0 0;align-items:center"><span class="small" id="capLbl" style="white-space:nowrap">本金 HK$</span><input id="capital" type="number" inputmode="decimal" min="0" step="1000" style="flex:0 0 140px;max-width:140px"></div><div class="small" id="profNote" style="margin-top:4px"></div>
   <details class="kid" id="pfBox" style="margin-top:6px"><summary>💼 用我嘅本金砌一個組合（買邊幾隻、每隻買幾多股）</summary><div id="pfPlan" class="small" style="margin-top:6px"></div></details>
   <details class="kid" id="profEdit" style="margin-top:6px"><summary>✏️ 自己調整條件（改任何一格就變「⚙️ 自訂」）</summary>
    <div class="pgrid">
@@ -433,7 +433,8 @@ const CUSTOM0=Object.assign({minRR:1.5,maxStop:10,maxATR:6,needLong:false,riskPc
 PROF.custom={name:'⚙️ 自訂',...CUSTOM0};
 function customDesc(c){ return `賺蝕比 ≥ ${c.minRR}、止蝕唔超過 ${c.maxStop}%、每日上落唔超過 ${c.maxATR}%${c.needLong?'、要長線向上':''}${c.minWin>0?'、賺錢機會最少 '+c.minWin+'%':''}。每單最多蝕本金 ${c.riskPct}%。`; }
 PROF.custom.desc=customDesc(PROF.custom);
-let prof=LS.get('prof','bal'); let capital=+LS.get('capital',10000)||10000;
+let prof=LS.get('prof','bal'); const ccy=()=>market==='HK'?'HK$':'US$', capOf=m=>+LS.get('capital_'+m,LS.get('capital',10000))||10000;   // 港股本金（港幣）同美股本金（美金）分開記
+let capital=capOf(market);
 function profFit(o,a,p,h,r){ const P_=PROF[prof]; const why=[];
   if(o.riskP>P_.maxStop) why.push(`止蝕要 −${fx1(o.riskP)}%，超過你接受嘅 ${P_.maxStop}%`);
   if(o.rr!=null&&o.rr<P_.minRR) why.push(`賺蝕比 ${fx1(o.rr)} 低過你要求嘅 ${P_.minRR}`);
@@ -455,7 +456,7 @@ function buildPortfolio(){ const P_=PROF[prof], MAXN=5, fee=feeNow();
   for(const {r,pl} of c){ if(out.length>=MAXN) break; const per=pl.entry-pl.stop; let sh=Math.floor(Math.min(capital*P_.riskPct/100/per, capital*MAXW/pl.entry, (cash-fee)/pl.entry)); const lot=(r.live&&r.live.lot)||1; sh=Math.floor(sh/lot)*lot; if(sh<1) continue;   // 富途有俾每手股數就向下調到一手嘅倍數
     const cost=sh*pl.entry; cash-=cost+fee; out.push({r,pl,sh,cost,loss:sh*per+2*fee,feeP:2*fee/cost*100}); }
   return {items:out,cash,cands:c.length,greens:green.length,demo,maxW:MAXW}; }
-function renderPortfolio(){ const el=$('pfPlan'); if(!el) return; const cur=CFG[market].cur, P_=PROF[prof], f0=n=>cur+Math.round(n).toLocaleString();
+function renderPortfolio(){ const el=$('pfPlan'); if(!el) return; const cur=ccy(), P_=PROF[prof], f0=n=>cur+Math.round(n).toLocaleString();
   const tips=`<div class="muted" style="margin-top:8px"><b>買幾隻唔同嘅，定係一隻買多啲？</b><br>· 一隻買多啲唔會減風險，只會將輸贏放大：佢出事（業績差、停牌、裂口低開直接穿止蝕）你就一次過中晒。<br>· 分開幾隻可以減「單一隻出事」嘅風險，但同一個市場、同一個行業嘅股通常一齊跌，所以唔好揀晒同一行。呢個 app 冇行業資料，要你自己睇。<br>· 真正控制風險嘅係「每單最多蝕本金 ${P_.riskPct}%」同埋止蝕照做，唔係買幾多隻。<br>· 本金細就寧願買少啲隻數：每隻太細注，佣金同最低收費會食晒利潤。<br>· 回測入面突破訊號大約一半單會輸，所以連輸幾單係正常，注碼要細到連輸都頂得住。</div><div class="muted" style="margin-top:6px">呢個係按你設定嘅規則計出嚟嘅數，唔係投資建議；買唔買、買幾多由你決定。</div>`;
   if(!(capital>0)){ el.innerHTML='先喺上面填本金。'+tips; return; }
   const pf=buildPortfolio();
@@ -499,9 +500,10 @@ function probHTML(r,pl,h,compact){ const o=probFor(r,pl,h); if(!o) return ''; co
    <li>平均每單 ${pct(o.ev)}；運氣差（最差 5%）會 ${pct(o.p5)}，運氣好（最好 5%）會 ${pct(o.p95)}。</li>
    ${tr?`<li>系統過去 ${tr.n} 次同類訊號（${esc(r.a.word)}）實際到目標 ${P(tr.w)}。</li>`:''}</ul>
    <div class="small" style="margin-top:6px">點計：用佢平時每日上落（ATR）模擬 1,000 次，假設冇人知明日升定跌，跟住計劃做（跌到止蝕就走、到 T1 賣一半之後止蝕移到買入價、到 T2 賣晒）。賺蝕比愈高，贏嘅機會通常愈低——靠贏一次抵輸幾次。呢個係數學估計，唔係預測；遇到突發新聞可以完全唔同。</div>
-   ${sz?`<div class="pline">💵 以你本金 ${cur}${capital.toLocaleString()}、「${PROF[prof].name}」（每單最多蝕 ${PROF[prof].riskPct}%＝${cur}${sz.maxLoss.toFixed(0)}）：建議最多買 <b>${sz.sh} 股</b>（約 ${cur}${sz.cost.toFixed(0)}）。跌到止蝕會蝕大約 ${cur}${sz.loss.toFixed(0)}。${market==='HK'?'港股要按每手股數調整（Futubull 有顯示每手幾多股）。':''}</div>`:''}
+   ${sz?`<div class="pline">💵 以你本金 ${ccy()}${capital.toLocaleString()}、「${PROF[prof].name}」（每單最多蝕 ${PROF[prof].riskPct}%＝${cur}${sz.maxLoss.toFixed(0)}）：建議最多買 <b>${sz.sh} 股</b>（約 ${cur}${sz.cost.toFixed(0)}）。跌到止蝕會蝕大約 ${cur}${sz.loss.toFixed(0)}。${market==='HK'?'港股要按每手股數調整（Futubull 有顯示每手幾多股）。':''}</div>`:''}
    ${pl.fit===false?`<div class="pline" style="color:var(--stop)">⚠️ 唔啱你嘅取向：${esc(pl.fitWhy.join('；'))}。</div>`:''}</div>`; }
-function renderProf(){ const pe=$('profEdit'); if(pe){ const cur=PROF[prof]; pe.querySelectorAll('[data-pk]').forEach(inp=>{ if(document.activeElement===inp) return; const k=inp.dataset.pk; if(inp.type==='checkbox') inp.checked=!!cur[k]; else inp.value=cur[k]??0; }); } document.querySelectorAll('#profTabs .tab').forEach(t=>t.classList.toggle('on',t.dataset.pf===prof)); const c=$('capital'); if(c&&document.activeElement!==c) c.value=capital; const n=$('profNote'); if(n) n.textContent=PROF[prof].desc; }
+function renderProf(){ const cl=$('capLbl'); if(cl) cl.textContent='本金 '+ccy(); const ci=$('capital'); if(ci&&document.activeElement!==ci) ci.value=capital;
+  const pe=$('profEdit'); if(pe){ const cur=PROF[prof]; pe.querySelectorAll('[data-pk]').forEach(inp=>{ if(document.activeElement===inp) return; const k=inp.dataset.pk; if(inp.type==='checkbox') inp.checked=!!cur[k]; else inp.value=cur[k]??0; }); } document.querySelectorAll('#profTabs .tab').forEach(t=>t.classList.toggle('on',t.dataset.pf===prof)); const c=$('capital'); if(c&&document.activeElement!==c) c.value=capital; const n=$('profNote'); if(n) n.textContent=PROF[prof].desc; }
 const KIDOPEN=new Set(); document.addEventListener('toggle',e=>{ const d=e.target; if(d&&d.matches&&d.matches('details.kid')){ d.open?KIDOPEN.add(d.dataset.k):KIDOPEN.delete(d.dataset.k); } },true);
 function kidHTML(r,pl,h){ const a=r.a, p=r.live?r.live.p:a.entry, chg=r.live?r.live.chg:a.chg, K=1000;
   const per=x=>CFG[market].cur+Math.abs(x/100*K).toFixed(0);
@@ -625,7 +627,7 @@ function findStock(q){ q=(q||'').trim(); if(!q) return; const rows=state[market]
   if(code) openDetail(code); else toast('搵唔到「'+q+'」：唔喺今次掃描，或者打錯代號'); }
 $('findBtn').onclick=()=>findStock($('findCode').value); $('findCode').addEventListener('keydown',e=>{ if(e.key==='Enter') findStock($('findCode').value); });
 $('profTabs').addEventListener('click',e=>{ const b=e.target.closest('.tab'); if(!b) return; prof=b.dataset.pf; LS.set('prof',prof); renderAll(); toast(PROF[prof].name+'：'+PROF[prof].desc); });
-$('capital').addEventListener('change',e=>{ const v=+e.target.value; if(v>0){ capital=v; LS.set('capital',v); renderAll(); } });
+$('capital').addEventListener('change',e=>{ const v=+e.target.value; if(v>0){ capital=v; LS.set('capital_'+market,v); renderAll(); } });
 $('profEdit').addEventListener('change',e=>{ const inp=e.target.closest('[data-pk]'); if(!inp) return;
   const base=PROF[prof], c={minRR:base.minRR,maxStop:base.maxStop,maxATR:base.maxATR,needLong:base.needLong,riskPct:base.riskPct,minWin:base.minWin||0};
   $('profEdit').querySelectorAll('[data-pk]').forEach(x=>{ const k=x.dataset.pk; if(x.type==='checkbox') c[k]=x.checked; else { const v=+x.value; if(Number.isFinite(v)&&(v>0||(k==='minWin'&&v>=0))) c[k]=v; } });
@@ -635,7 +637,7 @@ $('sumF').addEventListener('click',e=>{ const b=e.target.closest('.tab'); if(!b)
 let chatCode=null, chatBusy=false;
 const chatKey=()=>'chat_'+market+'_'+(chatCode||'_market');
 function chatCtx(){ const rows=state[market].rows, P_=PROF[prof];
-  const prof_=`用戶風險取向：${P_.name}（${P_.desc}）本金 ${CFG[market].cur}${capital}。`;
+  const prof_=`用戶風險取向：${P_.name}（${P_.desc}）本金 ${ccy()}${capital}。`;
   if(chatCode){ const r=rows.find(x=>x.code===chatCode); if(!r) return prof_;
     const hz=['day','short','mid','long'].map(h=>{ const pl=plan(r,h); if(!pl) return `${HZ[h].name}：冇數據`; const pr=probFor(r,pl,h);
       return `${HZ[h].name}（${HZ[h].hold}）：${pl.lamp} ${pl.word}；${pl.why}｜買入區 ${pl.zone?money(pl.zone[0])+'–'+money(pl.zone[1]):'冇'}｜止蝕 ${money(pl.stop)}（−${fx1(pl.riskP)}%）｜${pl.t1!=null?'T1 '+money(pl.t1)+'，T2 '+money(pl.t2)+'，R:R '+fx1(pl.rr):'冇固定目標'}${pr?`｜模擬（假設冇方向優勢）：賺錢 ${Math.round(pr.win*100)}%、蝕錢 ${Math.round(pr.lose*100)}%、平均 ${pct(pr.ev)}`:''}${pl.fit===false?'｜唔啱用戶取向：'+pl.fitWhy.join('；'):''}`; }).join('\n');
@@ -979,7 +981,7 @@ document.addEventListener('click',ev=>{ const b=ev.target.closest('button'); if(
 /* ---------- tabs / watchlist ---------- */
 function setView(){ document.querySelectorAll('.vtab').forEach(t=>t.classList.toggle('on',t.dataset.v===view)); ['cards','summary','log','review'].forEach(v=>$('v-'+v).classList.toggle('on',v===view)); }
 document.querySelectorAll('.vtab').forEach(t=>t.onclick=()=>{view=t.dataset.v;setView();});
-document.querySelectorAll('.mtab').forEach(t=>t.onclick=async()=>{ market=t.dataset.m; document.querySelectorAll('.mtab').forEach(x=>x.classList.toggle('on',x===t)); renderAll(); if(!state[market].rows.length||Date.now()-state[market].at>4*3600*1000) await scan(market); else live(); });
+document.querySelectorAll('.mtab').forEach(t=>t.onclick=async()=>{ market=t.dataset.m; capital=capOf(market); document.querySelectorAll('.mtab').forEach(x=>x.classList.toggle('on',x===t)); renderAll(); if(!state[market].rows.length||Date.now()-state[market].at>4*3600*1000) await scan(market); else live(); });
 $('tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(!b)return;filter=b.dataset.f;document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t===b));renderCards();});
 function renderWl(){ const w=watchOf(market); $('wlNote').innerHTML='全市場已經自動掃晒。自選係你特別想跟嘅股：卡上撳 ☆ 或者喺度打代號加，之後喺 🔥 卡撳「⭐ 自選」就淨係睇佢哋。想 GitHub 幫佢哋攞即時報價同即日數據，撳「匯出」貼落 repo 嘅 <b>watch.json</b>。';
   $('wl').innerHTML=w.length?w.map(c=>{const r=state[market].rows.find(x=>x.code===c);return `<span class="chip" style="display:inline-block;margin:3px">${esc(c)} ${esc(r?r.name:(CFG[market].names[c]||''))} <a href="#" data-unwatch="${esc(c)}" style="color:var(--stop);text-decoration:none">✕</a></span>`}).join(''):'未有自選。'; }
